@@ -1,0 +1,85 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+/** Every Firestore record handled by the generic module UI. */
+export type Rec = { id: string; [key: string]: any };
+
+export type CollectionName =
+  | "clients"
+  | "suppliers"
+  | "marketing"
+  | "rfqs"
+  | "quotations"
+  | "salesOrders"
+  | "purchaseOrders"
+  | "proformaInvoices"
+  | "payments"
+  | "deliveries"
+  | "companyDocs"
+  | "investors"
+  | "expenses"
+  | "financeEntries";
+
+export const COLLECTIONS: CollectionName[] = [
+  "clients",
+  "suppliers",
+  "marketing",
+  "rfqs",
+  "quotations",
+  "salesOrders",
+  "purchaseOrders",
+  "proformaInvoices",
+  "payments",
+  "deliveries",
+  "companyDocs",
+  "investors",
+  "expenses",
+  "financeEntries",
+];
+
+export type Attachment = {
+  name: string;
+  url: string;
+  path: string;
+  size: number;
+  uploadedAt: string;
+};
+
+/** basic = description/qty only, cost = + unit cost, sale = + unit cost and offered price */
+export type ItemsMode = "basic" | "cost" | "sale";
+
+export type LineItem = {
+  description: string;
+  product: string;
+  brand: string;
+  supplierId: string;
+  qty: number;
+  unit: string;
+  unitCost: number;
+  unitPrice: number;
+};
+
+export type Settings = {
+  regions: string[];
+  countries: string[];
+  sectors: string[];
+  brands: string[];
+  products: string[];
+  units: string[];
+  currencies: string[];
+  paymentTerms: string[];
+  paymentMethods: string[];
+  incoterms: string[];
+  followUpStatuses: string[];
+  marketingChannels: string[];
+  marketingResponses: string[];
+  expenseCategories: string[];
+  companyDocCategories: string[];
+  financeTypes: string[];
+  financeCategories: string[];
+  inactiveDays: number;
+  companyName: string;
+};
+
+export type ListKey = {
+  [K in keyof Settings]: Settings[K] extends string[] ? K : never;
+}[keyof Settings];

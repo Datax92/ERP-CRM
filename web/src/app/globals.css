@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --bg: #f4f4f1;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --line: #e2e1dc;
+  --ink: #0b0b0b;
+  --muted: #52514e;
+  --faint: #8a8984;
+  --accent: #1c5cab;
+  --accent-soft: #e3eefc;
+  --good: #0b7a3b;
+  --good-soft: #e3f4e8;
+  --warn: #8a5a00;
+  --warn-soft: #fbf0d6;
+  --bad: #b42323;
+  --bad-soft: #fbe5e3;
+  --info: #1c5cab;
+  --info-soft: #e3eefc;
+  /* chart slots (validated reference palette) */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --grid: #e7e6e2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211;
+    --surface: #1a1a19;
+    --surface-2: #232321;
+    --line: #34342f;
+    --ink: #f5f5f2;
+    --muted: #c3c2b7;
+    --faint: #8f8e86;
+    --accent: #6da7ec;
+    --accent-soft: #1d2d44;
+    --good: #5cc98a;
+    --good-soft: #17301f;
+    --warn: #e6b450;
+    --warn-soft: #362a12;
+    --bad: #ef7c7a;
+    --bad-soft: #3b1a19;
+    --info: #6da7ec;
+    --info-soft: #1d2d44;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --grid: #2c2c29;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "tnum" 1;
+}
+
+@layer components {
+  .field {
+    @apply w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none transition;
+    @apply focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition;
+    @apply hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-transparent bg-accent text-white hover:bg-accent/90;
+  }
+  .btn-danger {
+    @apply text-bad hover:bg-bad-soft;
+  }
+  .card {
+    @apply rounded-lg border border-line bg-surface;
+  }
+}
+
+@media print {
+  aside,
+  .no-print {
+    display: none !important;
+  }
+}

@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// Single-owner system: the first signed-in account claims /meta/owner, and from then on
+// only that account can read or write anything. Disable sign-up in the Firebase console
+// (Authentication → Settings → User actions) so no one else can create an account.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function ownerPath() {
+      return /databases/$(database)/documents/meta/owner;
+    }
+    function isOwner() {
+      return request.auth != null && exists(ownerPath()) && get(ownerPath()).data.uid == request.auth.uid;
+    }
+
+    match /meta/owner {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && !exists(ownerPath())
+        && request.resource.data.uid == request.auth.uid;
+    }
+
+    match /{document=**} {
+      allow read, write: if isOwner();
+    }
+  }
+}
