@@ -178,7 +178,7 @@ const PAGES: [string, string][] = [
 
 test("every module page renders with demo data (desktop + phone)", async ({ page }) => {
   await resetEmulator();
-  execSync("node scripts/seed-emulator.mjs", { stdio: "inherit" });
+  execSync("node scripts/seed-demo.mjs", { stdio: "inherit" });
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await login(page);

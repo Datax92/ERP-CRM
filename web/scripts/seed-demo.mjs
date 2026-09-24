@@ -1,7 +1,12 @@
-// Fills the LOCAL Firestore emulator (never the cloud) with ~14 months of demo data so the
-// reports and graphs have something to show.  Usage: npm run emulators, then npm run seed
-const BASE = "http://127.0.0.1:8080/v1/projects/demo-erp/databases/(default)/documents";
-const HEADERS = { "Content-Type": "application/json", Authorization: "Bearer owner" }; // emulator-only admin bypass
+// Fills Firestore with ~14 months of demo data so the reports and graphs have something to show.
+// Every record is tagged `demo: true`; remove them all with scripts/clear-demo.mjs.
+//   npm run seed                              → local emulator
+//   node scripts/seed-demo.mjs --project <id> → a cloud project (refuses if it already has records)
+import { COLLECTIONS, firestoreTarget } from "./firestore-target.mjs";
+
+const T = await firestoreTarget();
+const BASE = T.base;
+const HEADERS = T.headers;
 
 let seed = 42;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -21,8 +26,10 @@ function toValue(v) {
   return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toValue(x)])) } };
 }
 
-async function put(col, docId, data) {
-  const res = await fetch(`${BASE}/${col}/${docId}`, { method: "PATCH", headers: HEADERS, body: JSON.stringify({ fields: toValue(data).mapValue.fields }) });
+async function put(col, docId, data, mask) {
+  const body = col === "meta" || col === "counters" ? data : { ...data, demo: true };
+  const qs = mask ? "?" + mask.map((f) => `updateMask.fieldPaths=${f}`).join("&") : "";
+  const res = await fetch(`${BASE}/${col}/${docId}${qs}`, { method: "PATCH", headers: HEADERS, body: JSON.stringify({ fields: toValue(body).mapValue.fields }) });
   if (!res.ok) throw new Error(`${col}/${docId}: ${res.status} ${await res.text()}`);
 }
 
@@ -56,6 +63,12 @@ const CATALOG = [
 ];
 
 async function main() {
+  if (T.cloud) {
+    const r = await fetch(`${BASE}:listCollectionIds`, { method: "POST", headers: HEADERS, body: "{}" });
+    const existing = ((await r.json()).collectionIds ?? []).filter((c) => COLLECTIONS.includes(c));
+    if (existing.length) throw new Error(`${T.label} already has records in: ${existing.join(", ")}. Clear them first (scripts/clear-demo.mjs) — not seeding.`);
+  }
+  console.log(`Seeding ${T.label}…`);
   const clients = [
     ["Karachi Water & Sewerage Corp", "Sindh", "Water & Sanitation", "Registered"],
     ["Lucky Textile Mills", "Sindh", "Textile", "Registered"],
@@ -190,7 +203,8 @@ async function main() {
     const d = day(-m * 30 - 2);
     await put("financeEntries", id(), { serial: serial("ACC", d), date: d, direction: "Out", category: "Bank Charges", description: "Bank charges", qty: 1, ...((v) => ({ unitCost: v, amountValue: v, amount: v, amountPKR: v }))(int(2000, 9000)), currency: "PKR", exchangeRate: 1, ...stamp(d) });
   }
-  await put("meta", "settings", { products: CATALOG.map((c) => c.product), brands: [...new Set(CATALOG.map((c) => c.brand))], companyName: "Demo Trading Co." });
+  // Only the product and brand lists are touched, so the real company name and other lists stay.
+  await put("meta", "settings", { products: CATALOG.map((c) => c.product), brands: [...new Set(CATALOG.map((c) => c.brand))] }, ["products", "brands"]);
   // Keep the app's serial counters ahead of the seeded numbers.
   const COL = { RFQ: "rfqs", QT: "quotations", SO: "salesOrders", PO: "purchaseOrders", PI: "proformaInvoices", PAY: "payments", DN: "deliveries", EXP: "expenses", ACC: "financeEntries" };
   for (const [key, next] of Object.entries(serials)) {

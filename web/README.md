@@ -56,12 +56,30 @@ Requires Node 20+, `firebase-tools`, and **Java 21+** for the emulators (if an o
 ```bash
 npm install
 npm run emulators          # terminal 1 – local Auth/Firestore/Storage (data kept in ./emulator-data)
-npm run seed               # optional – ~14 months of demo data (emulator only; run once)
+npm run seed               # optional – ~14 months of demo data (run once)
 npm run dev:local          # terminal 2 – http://localhost:3000
 ```
 
 Create a login in the emulator UI (http://127.0.0.1:4000/auth) and sign in. The first account to sign in becomes the
 owner; any other account is refused.
+
+## Demo data
+
+Every demo record is tagged `demo: true`, so it can be removed without touching real records:
+
+```bash
+node scripts/seed-demo.mjs --project <id>          # load demo data into a cloud project (must be empty)
+node scripts/clear-demo.mjs --project <id> --yes   # remove all demo records before real use
+```
+
+Both use your `firebase login` credentials. Without `--project` they act on the local emulator.
+
+## Tests
+
+```bash
+npm test          # requirement tests: every Excel module and reporting row, the linked workflow, P/L maths
+npm run test:e2e  # browser tests against the local emulator (wipes it): full workflow + every page, no console errors
+```
 
 ## Put it on the cloud
 

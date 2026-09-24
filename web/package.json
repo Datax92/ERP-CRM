@@ -10,9 +10,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "deploy": "next build && firebase deploy",
-    "seed": "node scripts/seed-emulator.mjs",
+    "seed": "node scripts/seed-demo.mjs",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "clear-demo": "node scripts/clear-demo.mjs"
   },
   "dependencies": {
     "firebase": "^12.19.0",
