@@ -245,7 +245,7 @@ export function ItemsEditor({ mode, items, onChange, currency }: { mode: ItemsMo
   return (
     <div>
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[980px] text-sm">
           <thead className="bg-surface-2 text-left text-xs text-muted">
             <tr>
               <th className="px-2 py-1.5 font-medium">#</th>
@@ -253,10 +253,10 @@ export function ItemsEditor({ mode, items, onChange, currency }: { mode: ItemsMo
               <th className="px-2 py-1.5 font-medium">Product</th>
               <th className="px-2 py-1.5 font-medium">Brand</th>
               {sale && <th className="px-2 py-1.5 font-medium">Supplier</th>}
-              <th className="w-20 px-2 py-1.5 font-medium">Qty</th>
-              <th className="w-20 px-2 py-1.5 font-medium">Unit</th>
-              {cost && <th className="w-28 px-2 py-1.5 font-medium">Unit cost</th>}
-              {sale && <th className="w-28 px-2 py-1.5 font-medium">Offered rate</th>}
+              <th className="w-24 px-2 py-1.5 font-medium">Qty</th>
+              <th className="w-24 px-2 py-1.5 font-medium">Unit</th>
+              {cost && <th className="w-36 px-2 py-1.5 font-medium">Unit cost</th>}
+              {sale && <th className="w-36 px-2 py-1.5 font-medium">Offered rate</th>}
               {cost && <th className="px-2 py-1.5 text-right font-medium">Line total</th>}
               {sale && <th className="px-2 py-1.5 text-right font-medium">Margin %</th>}
               <th />

@@ -83,5 +83,7 @@ export const LIST_LABELS: Record<ListKey, string> = {
 };
 
 export function mergeSettings(stored: Partial<Settings> | undefined): Settings {
-  return { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
+  const merged = { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
+  for (const k of Object.keys(LIST_LABELS) as ListKey[]) merged[k] = [...new Set((merged[k] ?? []).map((v) => String(v).trim()).filter(Boolean))];
+  return merged;
 }

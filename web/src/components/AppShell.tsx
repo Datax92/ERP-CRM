@@ -75,7 +75,7 @@ const NAV: { group: string; items: { href: string; label: string; icon: typeof U
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user, settings } = useStore();
+  const { user, settings, loading } = useStore();
   const [open, setOpen] = useState(false);
 
   const nav = (
@@ -136,7 +136,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <span className="text-sm font-semibold">{settings.companyName}</span>
         </header>
-        <main className="mx-auto max-w-[1400px] p-4 lg:p-6">{children}</main>
+        <main className="mx-auto max-w-[1400px] p-4 lg:p-6">{loading ? <div className="py-20 text-center text-sm text-muted">Loading…</div> : children}</main>
       </div>
     </div>
   );

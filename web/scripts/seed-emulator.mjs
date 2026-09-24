@@ -190,7 +190,7 @@ async function main() {
     const d = day(-m * 30 - 2);
     await put("financeEntries", id(), { serial: serial("ACC", d), date: d, direction: "Out", category: "Bank Charges", description: "Bank charges", qty: 1, ...((v) => ({ unitCost: v, amountValue: v, amount: v, amountPKR: v }))(int(2000, 9000)), currency: "PKR", exchangeRate: 1, ...stamp(d) });
   }
-  await put("meta", "settings", { products: CATALOG.map((c) => c.product), brands: [...new Set(CATALOG.map((c) => c.brand)), "Yokogawa"], companyName: "Demo Trading Co." });
+  await put("meta", "settings", { products: CATALOG.map((c) => c.product), brands: [...new Set(CATALOG.map((c) => c.brand))], companyName: "Demo Trading Co." });
   // Keep the app's serial counters ahead of the seeded numbers.
   const COL = { RFQ: "rfqs", QT: "quotations", SO: "salesOrders", PO: "purchaseOrders", PI: "proformaInvoices", PAY: "payments", DN: "deliveries", EXP: "expenses", ACC: "financeEntries" };
   for (const [key, next] of Object.entries(serials)) {

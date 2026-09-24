@@ -91,8 +91,12 @@ function LateTable({ col, rows, expected, actual, party }: { col: CollectionName
 /** Shared report for the document chain modules (RFQ → Delivery), per the Excel's reporting rows. */
 export function pipelineReport(col: CollectionName) {
   return function PipelineReport(rows: Rec[], s: Store) {
-    const valued = col !== "rfqs" && col !== "deliveries";
-    const sale = col === "quotations" || col === "salesOrders" || (col === "proformaInvoices" && rows.every((r) => r.type !== "From Supplier"));
+    const valued = col !== "rfqs";
+    // Margin exists wherever a selling price is known: on the document itself, or via the linked sales order.
+    const sale = col === "quotations" || col === "salesOrders" || col === "purchaseOrders" || col === "deliveries" || (col === "proformaInvoices" && rows.every((r) => r.type !== "From Supplier"));
+    const valueOf = (r: Rec) => (col === "deliveries" ? deliveryInfo(r, s).valuePKR : pkr(r));
+    const marginOf = (r: Rec) => (col === "deliveries" ? deliveryInfo(r, s).marginPKR : col === "purchaseOrders" ? poInfo(r, s).marginPKR : num(r.marginPKR));
+    const saleValueOf = (r: Rec) => (col === "purchaseOrders" ? poInfo(r, s).salePKR : valueOf(r));
     const status = (r: Rec) => (col === "proformaInvoices" ? piInfo(r, s).status : r.status);
     const outcome = (r: Rec) => (col === "proformaInvoices" ? (piInfo(r, s).status === "Paid" ? "Success" : r.status === "Cancelled" ? "Unsuccessful" : "Open") : outcomeOf(col, r.status));
     const total = rows.length;
@@ -100,8 +104,9 @@ export function pipelineReport(col: CollectionName) {
     const won = rows.filter((r) => outcome(r) === "Success").length;
     const lost = rows.filter((r) => outcome(r) === "Unsuccessful").length;
     const live = rows.filter((r) => outcome(r) !== "Unsuccessful");
-    const value = live.reduce((t, r) => t + pkr(r), 0);
-    const margin = live.reduce((t, r) => t + num(r.marginPKR), 0);
+    const value = live.reduce((t, r) => t + valueOf(r), 0);
+    const margin = live.reduce((t, r) => t + marginOf(r), 0);
+    const saleValue = live.reduce((t, r) => t + saleValueOf(r), 0);
 
     const kpis: Kpi[] = [
       { label: `Total ${col === "rfqs" ? "RFQs" : "documents"}`, value: fmtNum(total) },
@@ -109,8 +114,8 @@ export function pipelineReport(col: CollectionName) {
       { label: col === "rfqs" ? "Converted to proposal" : "Closed – success", value: fmtNum(won), sub: pct(won, total), tone: "good" },
       { label: "Closed – unsuccessful", value: fmtNum(lost), sub: pct(lost, total), tone: lost ? "bad" : undefined },
     ];
-    if (valued) kpis.push({ label: "Total price (PKR)", value: fmtCompact(value), sub: "excl. unsuccessful" });
-    if (sale) kpis.push({ label: "Margin", value: fmtCompact(margin), sub: pct(margin, value), tone: margin < 0 ? "bad" : undefined });
+    if (valued) kpis.push({ label: col === "purchaseOrders" ? "Total cost (PKR)" : "Total price (PKR)", value: fmtCompact(value), sub: col === "deliveries" ? "from linked sales orders" : "excl. unsuccessful" });
+    if (sale) kpis.push({ label: "Margin", value: fmtCompact(margin), sub: `${pct(margin, saleValue)} margin`, tone: margin < 0 ? "bad" : undefined });
     if (col === "quotations") kpis.push({ label: "Converted to SO", value: fmtNum(rows.filter((q) => s.salesOrders.some((o) => o.quotationId === q.id)).length) });
     if (col === "salesOrders") {
       const delivered = rows.filter((r) => soInfo(r, s).delivered).length;
@@ -119,13 +124,22 @@ export function pipelineReport(col: CollectionName) {
     }
     if (col === "purchaseOrders") {
       const paid = rows.reduce((t, r) => t + poInfo(r, s).paid * rateOf(r), 0);
-      kpis.push({ label: "Paid to vendors", value: fmtCompact(paid), sub: `${fmtCompact(Math.max(0, value - paid))} outstanding` });
+      const periods = rows.map((r) => num(r.deliveryPeriodDays)).filter(Boolean);
+      kpis.push({ label: "Payment to vendors", value: fmtCompact(paid), sub: `${fmtCompact(Math.max(0, value - paid))} outstanding` });
       kpis.push({ label: "Delivered", value: fmtNum(rows.filter((r) => poInfo(r, s).delivered).length) });
+      kpis.push({ label: "Confirmed by supplier", value: fmtNum(rows.filter((r) => r.orderConfirmed).length) });
+      kpis.push({ label: "Avg delivery period", value: periods.length ? `${Math.round(periods.reduce((a, b) => a + b, 0) / periods.length)} days` : "—" });
     }
     if (col === "proformaInvoices") {
-      const pending = rows.reduce((t, r) => t + (r.status === "Cancelled" ? 0 : piInfo(r, s).pending * rateOf(r)), 0);
-      kpis.push({ label: "Pending (PKR)", value: fmtCompact(pending), tone: pending ? "warn" : undefined });
-      kpis.push({ label: "PI from suppliers", value: fmtNum(rows.filter((r) => r.type === "From Supplier").length) });
+      const toClient = rows.filter((r) => r.type !== "From Supplier" && r.status !== "Cancelled");
+      const fromSup = rows.filter((r) => r.type === "From Supplier" && r.status !== "Cancelled");
+      const sumPaid = (xs: Rec[]) => xs.reduce((t, r) => t + piInfo(r, s).paid * rateOf(r), 0);
+      const pending = toClient.reduce((t, r) => t + piInfo(r, s).pending * rateOf(r), 0);
+      kpis.push({ label: "Payment receipt (PKR)", value: fmtCompact(sumPaid(toClient)), tone: "good" });
+      kpis.push({ label: "Pending from clients", value: fmtCompact(pending), tone: pending ? "warn" : undefined });
+      kpis.push({ label: "PI issued by suppliers", value: fmtNum(fromSup.length), sub: `PKR ${fmtCompact(sumPaid(fromSup))} paid to vendors` });
+      kpis.push({ label: "Order confirmation", value: fmtNum(rows.filter((r) => r.orderConfirmed).length), sub: `of ${fmtNum(total)}` });
+      kpis.push({ label: "Delivered", value: fmtNum(rows.filter((r) => piInfo(r, s).delivered).length) });
     }
     if (col === "deliveries") {
       const done = rows.filter((r) => r.status === "Delivered");
@@ -133,14 +147,18 @@ export function pipelineReport(col: CollectionName) {
       const periods = done.map((r) => deliveryInfo(r, s).periodDays).filter((d): d is number => d != null);
       kpis.push({ label: "On-time rate", value: pct(onTime, done.length) });
       kpis.push({ label: "Avg delivery period", value: periods.length ? `${Math.round(periods.reduce((a, b) => a + b, 0) / periods.length)} days` : "—" });
+      kpis.push({ label: "Order confirmation", value: fmtNum(rows.filter((r) => r.orderConfirmed).length), sub: `of ${fmtNum(total)}` });
+      kpis.push({ label: "Payment receipt (PKR)", value: fmtCompact(rows.reduce((t, r) => t + deliveryInfo(r, s).receivedPKR, 0)), tone: "good" });
+      kpis.push({ label: "Payment to vendor (PKR)", value: fmtCompact(rows.reduce((t, r) => t + deliveryInfo(r, s).vendorPaidPKR, 0)) });
     }
 
     const partyOf = (r: Rec) => (col === "purchaseOrders" || r.type === "From Supplier" ? supplierName(s, r.supplierId) : clientName(s, r.clientId));
     const monthlyCount = monthly(rows, { split: outcome, series: OUTCOME.map((o) => o.key) });
     const monthlyValue = monthlyMeasures(live, [
-      { key: "value", value: pkr },
-      ...(sale ? [{ key: "margin", value: (r: Rec) => num(r.marginPKR) }] : []),
+      { key: "value", value: valueOf },
+      ...(sale ? [{ key: "margin", value: marginOf }] : []),
     ]);
+    const methodsOf = (r: Rec) => (col === "proformaInvoices" ? piInfo(r, s).methods : col === "deliveries" ? deliveryInfo(r, s).methods : []);
 
     return (
       <div>
@@ -150,8 +168,8 @@ export function pipelineReport(col: CollectionName) {
             <BarsChart data={monthlyCount} series={OUTCOME} stacked />
           </ChartCard>
           {valued ? (
-            <ChartCard title="Value by month (PKR)" subtitle={sale ? "Total price and margin" : "Total value"}>
-              <BarsChart data={monthlyValue} series={sale ? [{ key: "value", label: "Total price" }, { key: "margin", label: "Margin" }] : [{ key: "value", label: "Value" }]} money />
+            <ChartCard title="Value by month (PKR)" subtitle={sale ? "Total value and margin" : "Total value"}>
+              <BarsChart data={monthlyValue} series={sale ? [{ key: "value", label: col === "purchaseOrders" ? "Total cost" : "Total price" }, { key: "margin", label: "Margin" }] : [{ key: "value", label: "Value" }]} money />
             </ChartCard>
           ) : (
             <ChartCard title="By status">
@@ -159,7 +177,7 @@ export function pipelineReport(col: CollectionName) {
             </ChartCard>
           )}
           <ChartCard title="Comparison by client" subtitle={valued ? "Top 10 by value (PKR)" : "Top 10 by count"}>
-            <RankBars rows={groupSum(valued ? live : rows, partyOf, valued ? pkr : undefined)} money={valued} />
+            <RankBars rows={groupSum(valued ? live : rows, partyOf, valued ? valueOf : undefined)} money={valued} />
           </ChartCard>
           {valued && (
             <ChartCard title="By status">
@@ -176,7 +194,7 @@ export function pipelineReport(col: CollectionName) {
               </ChartCard>
             </>
           )}
-          {col !== "rfqs" && col !== "deliveries" && col !== "proformaInvoices" && (
+          {col !== "rfqs" && col !== "deliveries" && (
             <ChartCard title="Follow-up status">
               <RankBars rows={groupSum(rows.filter((r) => outcome(r) === "Open"), (r) => r.followUpStatus)} />
             </ChartCard>
@@ -191,7 +209,12 @@ export function pipelineReport(col: CollectionName) {
               <RankBars rows={groupSum(rows, (r) => r.paymentTerms)} />
             </ChartCard>
           )}
-          {valued && (
+          {(col === "proformaInvoices" || col === "deliveries") && (
+            <ChartCard title="Payment method" subtitle="Payments recorded against these documents">
+              <RankBars rows={groupSum(rows.flatMap((r) => methodsOf(r).map((m) => ({ id: r.id, m }))), (x) => x.m)} />
+            </ChartCard>
+          )}
+          {valued && col !== "deliveries" && (
             <ChartCard title="Total in foreign currency / PKR">
               <CurrencyTotals rows={live} />
             </ChartCard>
@@ -205,6 +228,28 @@ export function pipelineReport(col: CollectionName) {
           {col === "salesOrders" && (
             <ChartCard title="Late deliveries" subtitle="Promised delivery date vs. delivered date">
               <LateTable col={col} rows={rows} expected={(r) => r.expectedDeliveryDate} actual={(r) => soInfo(r, s).deliveredDate} party={partyOf} />
+            </ChartCard>
+          )}
+          {col === "purchaseOrders" && (
+            <ChartCard title="Delivery period & shipment dates">
+              <SimpleTable
+                head={["PO", "Supplier", "Confirmed", "Delivery period days", "Shipment (origin)", "Expected arrival", "Actual arrival"]}
+                empty="No purchase orders."
+                rows={rows
+                  .filter((r) => r.status !== "Cancelled")
+                  .slice(0, 30)
+                  .map((r) => [
+                    <RecordLink key={r.id} col="purchaseOrders" id={r.id}>
+                      {r.serial}
+                    </RecordLink>,
+                    partyOf(r),
+                    r.orderConfirmed ? "Yes" : "No",
+                    r.deliveryPeriodDays ? fmtNum(r.deliveryPeriodDays) : "—",
+                    fmtDate(r.shipmentOriginDate) || "—",
+                    fmtDate(r.expectedArrivalDate) || "—",
+                    fmtDate(r.actualArrivalDate) || "—",
+                  ])}
+              />
             </ChartCard>
           )}
           {col === "purchaseOrders" && (
@@ -263,7 +308,7 @@ export function pipelineReport(col: CollectionName) {
               />
             </ChartCard>
           )}
-          {(col === "quotations" || col === "salesOrders" || col === "purchaseOrders" || col === "deliveries") && (
+          {col !== "rfqs" && (
             <ChartCard title="Recent feedback">
               <SimpleTable
                 head={["Document", "Party", "Date", "Feedback"]}

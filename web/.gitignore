@@ -47,3 +47,6 @@ next-env.d.ts
 emulator-data/
 emulators.log
 dev.log
+test-results/
+playwright-report/
+tests/e2e/screenshots/

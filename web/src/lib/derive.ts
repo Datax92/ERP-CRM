@@ -61,8 +61,15 @@ export function poInfo(po: Rec, s: Store) {
     .filter((p) => p.direction === "Paid" && p.purchaseOrderId === po.id)
     .reduce((t, p) => t + paymentIn(p, po), 0);
   const so = po.salesOrderId ? s.byId.salesOrders.get(po.salesOrderId) : undefined;
+  // Sales value of what this PO buys: the selling rates carried onto its lines from the sales
+  // order, or else the SO value in proportion to this PO's share of the SO's cost.
+  const costPKR = num(po.amountPKR);
+  let salePKR = (po.items ?? []).reduce((t: number, i: Rec) => t + num(i.qty) * num(i.unitPrice), 0) * rateOf(po);
+  if (!salePKR && so && num(so.totalCostPKR)) salePKR = (num(so.amountPKR) * costPKR) / num(so.totalCostPKR);
   return {
     so,
+    salePKR,
+    marginPKR: salePKR ? salePKR - costPKR : 0,
     paid,
     outstanding: Math.max(0, num(po.amount) - paid),
     payment: paymentStatus(num(po.amount), paid),
@@ -73,20 +80,42 @@ export function poInfo(po: Rec, s: Store) {
 
 // ---------- Proforma invoice ----------
 export function piInfo(pi: Rec, s: Store) {
-  const dir = pi.type === "From Supplier" ? "Paid" : "Received";
-  const paid = s.payments
-    .filter((p) => p.direction === dir && p.proformaId === pi.id)
-    .reduce((t, p) => t + paymentIn(p, pi), 0);
+  const supplierSide = pi.type === "From Supplier";
+  const dir = supplierSide ? "Paid" : "Received";
+  const orderKey = supplierSide ? "purchaseOrderId" : "salesOrderId";
+  const orderId = pi[orderKey];
+  // Payments recorded against the order itself (not a specific proforma) count toward the
+  // proforma when it is the order's only live proforma of this type.
+  const soleProforma =
+    !!orderId && s.proformaInvoices.filter((x) => x[orderKey] === orderId && x.status !== "Cancelled" && (x.type === "From Supplier") === supplierSide).length === 1;
+  const own = s.payments.filter((p) => p.direction === dir && (p.proformaId === pi.id || (soleProforma && !p.proformaId && p[orderKey] === orderId)));
+  const paid = own.reduce((t, p) => t + paymentIn(p, pi), 0);
   const payment = paymentStatus(num(pi.amount), paid);
   const status = pi.status === "Cancelled" ? "Cancelled" : payment === "Paid" ? "Paid" : payment === "Partially paid" ? "Partially paid" : pi.status;
-  return { paid, pending: Math.max(0, num(pi.amount) - paid), payment, status };
+  const so = pi.salesOrderId ? s.byId.salesOrders.get(pi.salesOrderId) : undefined;
+  const po = pi.purchaseOrderId ? s.byId.purchaseOrders.get(pi.purchaseOrderId) : undefined;
+  const methods = own.map((p) => p.method).filter(Boolean) as string[];
+  const delivered = pi.type === "From Supplier" ? (po ? poInfo(po, s).delivered : false) : so ? soInfo(so, s).delivered : false;
+  return { paid, pending: Math.max(0, num(pi.amount) - paid), payment, status, delivered, methods };
 }
 
 // ---------- Delivery ----------
 export function deliveryInfo(d: Rec, s: Store) {
   const so = d.salesOrderId ? s.byId.salesOrders.get(d.salesOrderId) : undefined;
+  // A sales order split over several deliveries shares its value equally between them.
+  const share = so ? 1 / Math.max(1, s.deliveries.filter((x) => x.salesOrderId === so.id).length) : 0;
+  const soI = so ? soInfo(so, s) : undefined;
+  const pos = so ? soI!.pos : [];
+  const vendorPaidPKR = pos.reduce((t, p) => t + poInfo(p, s).paid * rateOf(p), 0);
+  const payments = s.payments.filter((p) => (so && p.salesOrderId === so.id) || pos.some((po) => po.id === p.purchaseOrderId));
   return {
     so,
+    valuePKR: so ? num(so.amountPKR) * share : 0,
+    marginPKR: so ? num(so.marginPKR) * share : 0,
+    receivedPKR: so ? soI!.received * rateOf(so) * share : 0,
+    payment: soI?.payment ?? "—",
+    vendorPaidPKR: vendorPaidPKR * share,
+    methods: payments.map((p) => p.method).filter(Boolean) as string[],
     late: lateness(d.expectedDeliveryDate, d.status === "Delivered" ? d.deliveredDate : undefined),
     periodDays: daysBetween(d.shipmentOriginDate || d.date, d.deliveredDate),
   };

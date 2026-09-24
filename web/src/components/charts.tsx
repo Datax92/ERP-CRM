@@ -1,11 +1,29 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
 import { fmtCompact, fmtMonth, fmtNum } from "@/lib/calc";
 import { Empty } from "./ui";
 
 export const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)", "var(--series-5)", "var(--series-6)"];
+
+// SVG attributes (fill, stroke) don't accept CSS var(), so chart colours are read from the
+// theme tokens at runtime and re-read when the OS switches between light and dark.
+const TOKENS = ["--series-1", "--series-2", "--series-3", "--series-4", "--series-5", "--series-6", "--faint", "--grid", "--surface", "--surface-2"];
+const LIGHT = "#2a78d6|#eb6834|#1baf7a|#eda100|#e87ba4|#008300|#8a8984|#e7e6e2|#fcfcfb|#f0efec";
+const readTokens = () => {
+  const cs = getComputedStyle(document.documentElement);
+  return TOKENS.map((t) => cs.getPropertyValue(t).trim()).join("|") || LIGHT;
+};
+const subscribeScheme = (cb: () => void) => {
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+};
+function useChartColors() {
+  const v = useSyncExternalStore(subscribeScheme, readTokens, () => LIGHT).split("|");
+  return { series: v.slice(0, 6), faint: v[6], grid: v[7], surface: v[8], surface2: v[9] };
+}
 
 export type Kpi = { label: string; value: string; sub?: string; tone?: "good" | "bad" | "warn" };
 
@@ -55,29 +73,31 @@ function TipBox({ active, payload, label, money, labelFmt }: TooltipContentProps
   );
 }
 
-const axis = { stroke: "var(--faint)", fontSize: 11, tickLine: false, axisLine: false } as const;
+const axisProps = (faint: string) => ({ stroke: faint, fontSize: 11, tickLine: false, axisLine: false }) as const;
 
 /** Monthly (or any categorical x) bars. `stacked` for parts of a whole, grouped otherwise. */
 export function BarsChart({ data, series, xKey = "month", money, stacked, height = 240, xIsMonth = true }: { data: Record<string, string | number>[]; series: SeriesDef[]; xKey?: string; money?: boolean; stacked?: boolean; height?: number; xIsMonth?: boolean }) {
+  const c = useChartColors();
   if (!data.length) return <Empty>No data in this range.</Empty>;
   const fmtX = (v: string) => (xIsMonth ? fmtMonth(v) : v);
+  const axis = axisProps(c.faint);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barGap={2} barCategoryGap="20%">
-        <CartesianGrid vertical={false} stroke="var(--grid)" />
+        <CartesianGrid vertical={false} stroke={c.grid} />
         <XAxis dataKey={xKey} {...axis} tickFormatter={fmtX} />
         <YAxis {...axis} width={44} tickFormatter={(v) => fmtCompact(v)} />
-        <Tooltip cursor={{ fill: "var(--surface-2)" }} content={(p) => <TipBox {...(p as TooltipContentProps<number, string>)} money={money} labelFmt={fmtX} />} />
+        <Tooltip cursor={{ fill: c.surface2 }} content={(p) => <TipBox {...(p as TooltipContentProps<number, string>)} money={money} labelFmt={fmtX} />} />
         {series.length > 1 && <Legend itemSorter={null} iconType="square" iconSize={8} wrapperStyle={{ fontSize: 12, color: "var(--muted)" }} />}
         {series.map((sd, i) => (
           <Bar
             key={sd.key}
             dataKey={sd.key}
             name={sd.label}
-            fill={SERIES[i]}
+            fill={c.series[i]}
             stackId={stacked ? "a" : undefined}
             radius={stacked ? (i === series.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]) : [4, 4, 0, 0]}
-            stroke="var(--surface)"
+            stroke={c.surface}
             strokeWidth={stacked ? 1 : 0}
             maxBarSize={40}
           />
@@ -88,17 +108,19 @@ export function BarsChart({ data, series, xKey = "month", money, stacked, height
 }
 
 export function LinesChart({ data, series, xKey, money, height = 240, xFmt }: { data: Record<string, string | number>[]; series: SeriesDef[]; xKey: string; money?: boolean; height?: number; xFmt?: (v: string) => string }) {
+  const c = useChartColors();
   if (!data.length) return <Empty>No data in this range.</Empty>;
+  const axis = axisProps(c.faint);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke="var(--grid)" />
+        <CartesianGrid vertical={false} stroke={c.grid} />
         <XAxis dataKey={xKey} {...axis} tickFormatter={xFmt} />
         <YAxis {...axis} width={44} tickFormatter={(v) => fmtCompact(v)} />
-        <Tooltip cursor={{ stroke: "var(--faint)", strokeDasharray: "3 3" }} content={(p) => <TipBox {...(p as TooltipContentProps<number, string>)} money={money} labelFmt={xFmt} />} />
+        <Tooltip cursor={{ stroke: c.faint, strokeDasharray: "3 3" }} content={(p) => <TipBox {...(p as TooltipContentProps<number, string>)} money={money} labelFmt={xFmt} />} />
         {series.length > 1 && <Legend itemSorter={null} iconType="plainline" wrapperStyle={{ fontSize: 12, color: "var(--muted)" }} />}
         {series.map((sd, i) => (
-          <Line key={sd.key} type="monotone" dataKey={sd.key} name={sd.label} stroke={SERIES[i]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, stroke: "var(--surface)" }} activeDot={{ r: 5 }} />
+          <Line key={sd.key} type="monotone" dataKey={sd.key} name={sd.label} stroke={c.series[i]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, stroke: c.surface, fill: c.series[i] }} activeDot={{ r: 5 }} />
         ))}
       </LineChart>
     </ResponsiveContainer>

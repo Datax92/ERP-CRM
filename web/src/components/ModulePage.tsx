@@ -110,16 +110,16 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
           <Search size={14} className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint" />
           <input className="field pl-8" placeholder="Search…" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} />
         </label>
-        <label className="text-xs text-muted">
+        <label className="flex flex-col text-xs text-muted">
           From
           <input type="date" className="field mt-0.5" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
         </label>
-        <label className="text-xs text-muted">
+        <label className="flex flex-col text-xs text-muted">
           To
           <input type="date" className="field mt-0.5" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
         </label>
         {m.filters.map((def) => (
-          <label key={def.key} className="text-xs text-muted">
+          <label key={def.key} className="flex flex-col text-xs text-muted">
             {def.label}
             <select className="field mt-0.5 max-w-44" value={f.sel[def.key] ?? ""} onChange={(e) => setF({ ...f, sel: { ...f.sel, [def.key]: e.target.value } })}>
               <option value="">All</option>
