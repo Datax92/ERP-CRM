@@ -45,3 +45,5 @@ next-env.d.ts
 .firebase/
 *-debug.log
 emulator-data/
+emulators.log
+dev.log

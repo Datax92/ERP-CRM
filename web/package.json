@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:local": "node scripts/with-emulator-env.mjs dev",
-    "emulators": "firebase emulators:start --project demo-erp --import emulator-data --export-on-exit emulator-data",
+    "emulators": "node scripts/emulators.mjs",
     "build": "next build",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

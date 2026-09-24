@@ -50,7 +50,8 @@ table and the **Reports & graphs** tab. Tables export to CSV (opens in Excel).
 
 ## Run locally (no Firebase account needed)
 
-Requires Node 20+, `firebase-tools`, and **Java 21+** for the emulators.
+Requires Node 20+, `firebase-tools`, and **Java 21+** for the emulators (if an older Java is first on PATH, set
+`JAVA_HOME` to the Java 21 folder — `npm run emulators` uses it).
 
 ```bash
 npm install
