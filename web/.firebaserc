@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "madpaper-7779d"
-  }
+  },
+  "targets": {
+    "madpaper-7779d": {
+      "hosting": {
+        "app": [
+          "erp-cac37"
+        ],
+        "legacy": [
+          "madpaper-7779d"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

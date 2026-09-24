@@ -92,6 +92,10 @@ npm run test:e2e  # browser tests against the local emulator (wipes it): full wo
 4. `firebase login`, `firebase use --add <project-id>`, then `npm run deploy` (builds and deploys hosting + security rules).
 5. Sign in with the owner account **first** — that claims ownership.
 
+Live at **https://erp-cac37.web.app** (Firebase Hosting site `erp-cac37`, deploy target `app`). The project's default
+site `madpaper-7779d.web.app` (target `legacy`) only redirects there. For a new project, point both targets at its
+sites with `firebase target:apply hosting …`, or drop the `legacy` entry from `firebase.json`.
+
 Works on phones (responsive layout, offline cache). Export any table to CSV at any time.
 
 ## Assumptions to confirm with the client
