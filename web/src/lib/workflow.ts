@@ -294,3 +294,45 @@ export function linkedRecords(col: CollectionName, r: Rec, s: Store): { col: Col
   }
   return out;
 }
+
+// ---------- Trade route: the whole deal a document belongs to ----------
+export type RouteStop = { col: CollectionName; label: string; recs: Rec[] };
+export const ROUTE_COLS: CollectionName[] = ["rfqs", "quotations", "salesOrders", "purchaseOrders", "proformaInvoices", "deliveries"];
+const ROUTE_LABELS: Record<string, string> = {
+  rfqs: "RFQ",
+  quotations: "Quotation",
+  salesOrders: "Sales order",
+  purchaseOrders: "Purchase order",
+  proformaInvoices: "Proforma",
+  deliveries: "Delivery",
+};
+
+/** Walks the links from any document to its RFQ, quotation, sales order, POs, proformas and deliveries. */
+export function dealRoute(col: CollectionName, r: Rec, s: Store): RouteStop[] | null {
+  if (!ROUTE_COLS.includes(col)) return null;
+  const get = (c: CollectionName, id?: string) => (id ? s.byId[c].get(id) : undefined);
+  let rfq = col === "rfqs" ? r : undefined;
+  let quote = col === "quotations" ? r : undefined;
+  let so = col === "salesOrders" ? r : undefined;
+  if (col === "purchaseOrders" || col === "proformaInvoices" || col === "deliveries") {
+    so = get("salesOrders", r.salesOrderId) ?? (r.purchaseOrderId ? get("salesOrders", get("purchaseOrders", r.purchaseOrderId)?.salesOrderId) : undefined);
+  }
+  if (rfq && !quote) quote = s.quotations.find((q) => q.rfqId === rfq!.id);
+  if (quote && !so) so = s.salesOrders.find((o) => o.quotationId === quote!.id);
+  if (so && !quote) quote = get("quotations", so.quotationId);
+  if (quote && !rfq) rfq = get("rfqs", quote.rfqId);
+
+  const pos = so ? s.purchaseOrders.filter((p) => p.salesOrderId === so!.id) : col === "purchaseOrders" ? [r] : [];
+  const poIds = new Set(pos.map((p) => p.id));
+  const pis = so || pos.length ? s.proformaInvoices.filter((p) => (so && p.salesOrderId === so.id) || poIds.has(p.purchaseOrderId)) : col === "proformaInvoices" ? [r] : [];
+  const dns = so ? s.deliveries.filter((d) => d.salesOrderId === so!.id) : col === "deliveries" ? [r] : [];
+  const recs: Record<string, Rec[]> = {
+    rfqs: rfq ? [rfq] : [],
+    quotations: quote ? [quote] : [],
+    salesOrders: so ? [so] : [],
+    purchaseOrders: pos,
+    proformaInvoices: pis,
+    deliveries: dns,
+  };
+  return ROUTE_COLS.map((c) => ({ col: c, label: ROUTE_LABELS[c], recs: recs[c] }));
+}

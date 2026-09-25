@@ -64,6 +64,9 @@ const date = (v?: string): Cell => ({ text: fmtDate(v) || "—", sort: v ?? "" }
 
 export function statusTone(status: string): Cell["tone"] {
   const s = status.toLowerCase();
+  if (s === "registered") return "good";
+  if (s === "unregistered") return "muted";
+  if (s === "in process") return "warn";
   if (/(won|converted|delivered|received|paid$|^paid|closed|approved|valid|active|confirmed|repaid)/.test(s) && !/partially/.test(s)) return "good";
   if (/(lost|cancel|regret|returned|rejected|expired|unpaid|overdue|late)/.test(s)) return "bad";
   if (/(partial|follow|negotiat|pending|due|expiring|costing|transit|shipped)/.test(s)) return "warn";

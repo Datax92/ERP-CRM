@@ -28,7 +28,7 @@ import {
 import { fb } from "@/lib/firebase";
 import { useStore } from "./DataProvider";
 
-const NAV: { group: string; items: { href: string; label: string; icon: typeof Users }[] }[] = [
+export const NAV: { group: string; items: { href: string; label: string; icon: typeof Users }[] }[] = [
   { group: "", items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }] },
   {
     group: "Contacts",
@@ -73,21 +73,37 @@ const NAV: { group: string; items: { href: string; label: string; icon: typeof U
   },
 ];
 
+/** The navigation group a page belongs to, shown as the eyebrow above its title. */
+export function navGroupFor(pathname: string) {
+  return NAV.find((g) => g.items.some((i) => (i.href === "/" ? pathname === "/" : pathname.startsWith(i.href))))?.group || "Overview";
+}
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("") || "T";
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, settings, loading } = useStore();
   const [open, setOpen] = useState(false);
 
   const nav = (
-    <nav className="flex h-full flex-col">
-      <div className="px-4 py-4">
-        <div className="text-sm font-semibold">{settings.companyName}</div>
-        <div className="text-xs text-muted">Trade ERP</div>
+    <nav className="flex h-full flex-col text-sidebar-ink">
+      <div className="flex items-center gap-3 px-5 pt-6 pb-5">
+        <div className="display grid size-10 shrink-0 place-items-center rounded-lg border border-brass/50 bg-sidebar-2 text-lg text-brass">{initials(settings.companyName)}</div>
+        <div className="min-w-0">
+          <div className="truncate text-[15px] font-semibold tracking-tight">{settings.companyName}</div>
+          <div className="eyebrow !text-sidebar-muted">Trade ledger</div>
+        </div>
       </div>
-      <div className="flex-1 space-y-4 overflow-y-auto px-2 pb-4">
+      <div className="flex-1 space-y-4 overflow-y-auto px-3 pb-4">
         {NAV.map((g) => (
-          <div key={g.group}>
-            {g.group && <div className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-wider text-faint">{g.group}</div>}
+          <div key={g.group || "home"}>
+            {g.group && <div className="eyebrow mb-1.5 px-3 !text-sidebar-muted/80">{g.group}</div>}
             {g.items.map(({ href, label, icon: Icon }) => {
               const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
               return (
@@ -95,9 +111,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                   key={href}
                   href={href}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${active ? "bg-accent-soft font-medium text-accent" : "text-muted hover:bg-surface-2 hover:text-ink"}`}
+                  aria-current={active ? "page" : undefined}
+                  className={`group relative flex items-center gap-2.5 rounded-lg px-3 py-[6px] text-[13.5px] transition ${
+                    active ? "bg-white/[0.07] font-medium text-white" : "text-sidebar-muted hover:bg-white/[0.04] hover:text-sidebar-ink"
+                  }`}
                 >
-                  <Icon size={16} />
+                  {active && <span className="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-brass" />}
+                  <Icon size={16} strokeWidth={active ? 2 : 1.75} className={active ? "text-brass" : "opacity-80 group-hover:opacity-100"} />
                   {label}
                 </Link>
               );
@@ -105,38 +125,57 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         ))}
       </div>
-      <div className="border-t border-line p-3 text-xs text-muted">
-        <div className="truncate">{user.email}</div>
-        <button
-          className="mt-1 inline-flex items-center gap-1 hover:text-ink"
-          onClick={async () => {
-            await signOut(fb().auth);
-            window.location.reload();
-          }}
-        >
-          <LogOut size={12} /> Sign out
-        </button>
+      <div className="m-3 flex items-center gap-2.5 rounded-lg border border-sidebar-line bg-sidebar-2 p-2.5">
+        <div className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold">{(user.email ?? "?")[0]!.toUpperCase()}</div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs text-sidebar-ink">{user.email}</div>
+          <button
+            className="inline-flex items-center gap-1 text-[11px] text-sidebar-muted hover:text-white"
+            onClick={async () => {
+              await signOut(fb().auth);
+              window.location.reload();
+            }}
+          >
+            <LogOut size={11} /> Sign out
+          </button>
+        </div>
       </div>
     </nav>
   );
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-line bg-surface lg:block">{nav}</aside>
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 bg-sidebar lg:block">{nav}</aside>
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-          <aside className="relative h-full w-64 bg-surface shadow-xl">{nav}</aside>
+          <div className="anim-fade absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setOpen(false)} />
+          <aside className="anim-drawer relative h-full w-72 bg-sidebar shadow-2xl">{nav}</aside>
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <header className="no-print sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-surface px-4 py-2 lg:hidden">
-          <button className="btn px-2" onClick={() => setOpen(true)} aria-label="Open menu">
-            <Menu size={16} />
+        <header className="no-print sticky top-0 z-30 flex items-center gap-3 bg-sidebar px-4 py-3 text-sidebar-ink lg:hidden">
+          <button className="grid size-9 place-items-center rounded-lg border border-sidebar-line text-sidebar-ink" onClick={() => setOpen(true)} aria-label="Open menu">
+            <Menu size={17} />
           </button>
-          <span className="text-sm font-semibold">{settings.companyName}</span>
+          <div className="display grid size-8 place-items-center rounded-md border border-brass/50 text-sm text-brass">{initials(settings.companyName)}</div>
+          <span className="truncate text-sm font-semibold">{settings.companyName}</span>
         </header>
-        <main className="mx-auto max-w-[1400px] p-4 lg:p-6">{loading ? <div className="py-20 text-center text-sm text-muted">Loading…</div> : children}</main>
+        <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
+          {loading ? (
+            <div className="grid min-h-[60vh] place-items-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-px w-40 overflow-hidden bg-line">
+                  <div className="h-px w-1/3 animate-[fade-in_1s_ease-in-out_infinite_alternate] bg-brass" />
+                </div>
+                <span className="eyebrow">Loading ledger</span>
+              </div>
+            </div>
+          ) : (
+            <div key={pathname} className="anim-rise">
+              {children}
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );

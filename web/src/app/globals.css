@@ -1,61 +1,93 @@
 @import "tailwindcss";
 
+/*
+ * "Private trading house": evergreen ink and brass on a cool mist ground.
+ * Evergreen carries action and identity; brass is reserved for the signature trade-route
+ * line and the active navigation mark. Status colours never double as decoration.
+ */
 :root {
   color-scheme: light;
-  --bg: #f4f4f1;
-  --surface: #fcfcfb;
-  --surface-2: #f0efec;
-  --line: #e2e1dc;
-  --ink: #0b0b0b;
-  --muted: #52514e;
-  --faint: #8a8984;
-  --accent: #1c5cab;
-  --accent-soft: #e3eefc;
-  --good: #0b7a3b;
-  --good-soft: #e3f4e8;
+  --bg: #eef1ee;
+  --surface: #ffffff;
+  --surface-2: #f5f7f5;
+  --line: #e1e6e2;
+  --line-strong: #cdd5d0;
+  --ink: #0f1a16;
+  --muted: #56625c;
+  --faint: #8b958f;
+  --accent: #14493b;
+  --accent-hover: #0f3a2f;
+  --accent-ink: #ffffff;
+  --accent-soft: #e4efe9;
+  --brass: #a67c3a;
+  --brass-soft: #f5eddf;
+  --sidebar: #0f2a23;
+  --sidebar-2: #143429;
+  --sidebar-ink: #eaf1ec;
+  --sidebar-muted: #8ea99e;
+  --sidebar-line: #1f4034;
+  --good: #16794f;
+  --good-soft: #e3f3ea;
   --warn: #8a5a00;
   --warn-soft: #fbf0d6;
-  --bad: #b42323;
-  --bad-soft: #fbe5e3;
-  --info: #1c5cab;
-  --info-soft: #e3eefc;
-  /* chart slots (validated reference palette) */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #eda100;
-  --series-5: #e87ba4;
-  --series-6: #008300;
-  --grid: #e7e6e2;
+  --bad: #b3261e;
+  --bad-soft: #fbe7e5;
+  --info: #2c5aa0;
+  --info-soft: #e7eefa;
+  --shadow: 0 1px 2px rgb(15 26 22 / 0.04), 0 4px 16px -8px rgb(15 26 22 / 0.08);
+  --shadow-lg: 0 24px 64px -24px rgb(15 26 22 / 0.35);
+  --highlight: inset 0 1px 0 rgb(255 255 255 / 0.9);
+  /* chart slots — validated (CVD + contrast) against #ffffff */
+  --series-1: #0b7d5e;
+  --series-2: #c28a3a;
+  --series-3: #4a68b0;
+  --series-4: #b04f6b;
+  --series-5: #7a9a3a;
+  --series-6: #6b4fa0;
+  --grid: #eaeeeb;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --bg: #121211;
-    --surface: #1a1a19;
-    --surface-2: #232321;
-    --line: #34342f;
-    --ink: #f5f5f2;
-    --muted: #c3c2b7;
-    --faint: #8f8e86;
-    --accent: #6da7ec;
-    --accent-soft: #1d2d44;
+    --bg: #0a110e;
+    --surface: #111a16;
+    --surface-2: #16211c;
+    --line: #22302a;
+    --line-strong: #2e3e37;
+    --ink: #edf2ee;
+    --muted: #a9b6af;
+    --faint: #78867f;
+    --accent: #3aa27f;
+    --accent-hover: #46b48e;
+    --accent-ink: #04130d;
+    --accent-soft: #15302a;
+    --brass: #d0a562;
+    --brass-soft: #2b2417;
+    --sidebar: #0c1814;
+    --sidebar-2: #12221c;
+    --sidebar-ink: #e3ece6;
+    --sidebar-muted: #7f978c;
+    --sidebar-line: #1b2e27;
     --good: #5cc98a;
-    --good-soft: #17301f;
+    --good-soft: #15291f;
     --warn: #e6b450;
-    --warn-soft: #362a12;
+    --warn-soft: #2e2413;
     --bad: #ef7c7a;
-    --bad-soft: #3b1a19;
-    --info: #6da7ec;
-    --info-soft: #1d2d44;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --series-6: #008300;
-    --grid: #2c2c29;
+    --bad-soft: #341a19;
+    --info: #86a8e6;
+    --info-soft: #18233a;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px -8px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 24px 64px -24px rgb(0 0 0 / 0.7);
+    --highlight: inset 0 1px 0 rgb(255 255 255 / 0.04);
+    /* validated against the dark chart surface */
+    --series-1: #24a07a;
+    --series-2: #b27a2c;
+    --series-3: #6383cc;
+    --series-4: #c25f7c;
+    --series-5: #7f9f3f;
+    --series-6: #8b72cc;
+    --grid: #1c2823;
   }
 }
 
@@ -64,11 +96,21 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
+  --color-brass: var(--brass);
+  --color-brass-soft: var(--brass-soft);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-2: var(--sidebar-2);
+  --color-sidebar-ink: var(--sidebar-ink);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-line: var(--sidebar-line);
   --color-good: var(--good);
   --color-good-soft: var(--good-soft);
   --color-warn: var(--warn);
@@ -77,8 +119,9 @@
   --color-bad-soft: var(--bad-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display-serif);
+  --font-mono: var(--font-plex-mono);
 }
 
 html,
@@ -88,27 +131,143 @@ body {
 }
 
 body {
-  font-family: var(--font-sans), system-ui, sans-serif;
-  font-feature-settings: "tnum" 1;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @layer components {
-  .field {
-    @apply w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink outline-none transition;
-    @apply focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60;
+  /* Serif for page titles and headline figures only. */
+  .display {
+    font-family: var(--font-display-serif), Georgia, serif;
+    font-weight: 500;
+    letter-spacing: -0.015em;
+    font-optical-sizing: auto;
   }
+  /* Small uppercase mono labels: section names, document kinds, table headers. */
+  .eyebrow {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  /* Document numbers read like stamped references. */
+  .serial {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.01em;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition;
+    box-shadow: var(--highlight);
+    min-height: 36px;
+  }
+  .field:hover {
+    border-color: var(--line-strong);
+  }
+  .field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  .field:disabled {
+    opacity: 0.6;
+  }
+
   .btn {
-    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition;
-    @apply hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 text-sm font-medium text-ink transition;
+    min-height: 36px;
+    box-shadow: var(--highlight), 0 1px 2px rgb(15 26 22 / 0.05);
+  }
+  .btn:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-2);
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
   }
   .btn-primary {
-    @apply border-transparent bg-accent text-white hover:bg-accent/90;
+    border-color: transparent;
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 1px 2px rgb(15 26 22 / 0.2);
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+    border-color: transparent;
   }
   .btn-danger {
-    @apply text-bad hover:bg-bad-soft;
+    color: var(--bad);
   }
+  .btn-danger:hover {
+    background: var(--bad-soft);
+  }
+
   .card {
-    @apply rounded-lg border border-line bg-surface;
+    @apply rounded-xl border border-line bg-surface;
+    box-shadow: var(--shadow), var(--highlight);
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes rise-in {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.anim-drawer {
+  animation: drawer-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.anim-fade {
+  animation: fade-in 200ms ease-out;
+}
+.anim-rise {
+  animation: rise-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-drawer,
+  .anim-fade,
+  .anim-rise {
+    animation: none;
   }
 }
 

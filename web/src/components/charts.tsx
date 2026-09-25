@@ -10,7 +10,7 @@ export const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)", 
 // SVG attributes (fill, stroke) don't accept CSS var(), so chart colours are read from the
 // theme tokens at runtime and re-read when the OS switches between light and dark.
 const TOKENS = ["--series-1", "--series-2", "--series-3", "--series-4", "--series-5", "--series-6", "--faint", "--grid", "--surface", "--surface-2"];
-const LIGHT = "#2a78d6|#eb6834|#1baf7a|#eda100|#e87ba4|#008300|#8a8984|#e7e6e2|#fcfcfb|#f0efec";
+const LIGHT = "#0b7d5e|#c28a3a|#4a68b0|#b04f6b|#7a9a3a|#6b4fa0|#8b958f|#eaeeeb|#ffffff|#f5f7f5";
 const readTokens = () => {
   const cs = getComputedStyle(document.documentElement);
   return TOKENS.map((t) => cs.getPropertyValue(t).trim()).join("|") || LIGHT;
@@ -29,12 +29,12 @@ export type Kpi = { label: string; value: string; sub?: string; tone?: "good" | 
 
 export function Kpis({ items }: { items: Kpi[] }) {
   return (
-    <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+    <div className="card mb-5 grid grid-cols-[repeat(auto-fit,minmax(148px,1fr))] gap-px overflow-hidden !bg-line">
       {items.map((k) => (
-        <div key={k.label} className="card p-3">
-          <div className="text-xs text-muted">{k.label}</div>
-          <div className={`mt-1 text-lg font-semibold tracking-tight ${k.tone === "bad" ? "text-bad" : k.tone === "good" ? "text-good" : k.tone === "warn" ? "text-warn" : ""}`}>{k.value}</div>
-          {k.sub && <div className="mt-0.5 text-xs text-faint">{k.sub}</div>}
+        <div key={k.label} className="bg-surface px-5 py-4">
+          <div className="eyebrow">{k.label}</div>
+          <div className={`display num mt-2 text-[28px] leading-none ${k.tone === "bad" ? "text-bad" : k.tone === "good" ? "text-good" : k.tone === "warn" ? "text-warn" : "text-ink"}`}>{k.value}</div>
+          {k.sub && <div className="mt-2 text-xs text-muted">{k.sub}</div>}
         </div>
       ))}
     </div>
@@ -43,10 +43,10 @@ export function Kpis({ items }: { items: Kpi[] }) {
 
 export function ChartCard({ title, subtitle, children, className = "" }: { title: string; subtitle?: string; children: ReactNode; className?: string }) {
   return (
-    <div className={`card p-4 ${className}`}>
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {subtitle && <p className="text-xs text-muted">{subtitle}</p>}
+    <div className={`card p-5 ${className}`}>
+      <div className="mb-4">
+        <h3 className="text-[15px] font-semibold tracking-tight text-ink">{title}</h3>
+        {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
       </div>
       {children}
     </div>
@@ -58,7 +58,7 @@ export type SeriesDef = { key: string; label: string };
 function TipBox({ active, payload, label, money, labelFmt }: TooltipContentProps<number, string> & { money?: boolean; labelFmt?: (l: string) => string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-md border border-line bg-surface px-3 py-2 text-xs shadow-lg">
+    <div className="rounded-lg border border-line bg-surface px-3 py-2.5 text-xs shadow-[var(--shadow-lg)]">
       <div className="mb-1 font-medium text-ink">{labelFmt ? labelFmt(String(label)) : String(label)}</div>
       {payload.map((p) => (
         <div key={String(p.dataKey)} className="flex items-center justify-between gap-4 text-muted">
@@ -100,6 +100,8 @@ export function BarsChart({ data, series, xKey = "month", money, stacked, height
             stroke={c.surface}
             strokeWidth={stacked ? 1 : 0}
             maxBarSize={40}
+            animationDuration={450}
+            animationBegin={0}
           />
         ))}
       </BarChart>
@@ -120,7 +122,7 @@ export function LinesChart({ data, series, xKey, money, height = 240, xFmt }: { 
         <Tooltip cursor={{ stroke: c.faint, strokeDasharray: "3 3" }} content={(p) => <TipBox {...(p as TooltipContentProps<number, string>)} money={money} labelFmt={xFmt} />} />
         {series.length > 1 && <Legend itemSorter={null} iconType="plainline" wrapperStyle={{ fontSize: 12, color: "var(--muted)" }} />}
         {series.map((sd, i) => (
-          <Line key={sd.key} type="monotone" dataKey={sd.key} name={sd.label} stroke={c.series[i]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, stroke: c.surface, fill: c.series[i] }} activeDot={{ r: 5 }} />
+          <Line key={sd.key} type="monotone" dataKey={sd.key} name={sd.label} stroke={c.series[i]} strokeWidth={2} dot={{ r: 3, strokeWidth: 2, stroke: c.surface, fill: c.series[i] }} activeDot={{ r: 5 }} animationDuration={500} animationBegin={0} />
         ))}
       </LineChart>
     </ResponsiveContainer>
@@ -133,18 +135,18 @@ export function RankBars({ rows, money, max = 10, color = SERIES[0] }: { rows: {
   if (!top.length || top.every((r) => !r.value)) return <Empty>No data in this range.</Empty>;
   const peak = Math.max(...top.map((r) => r.value)) || 1;
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-3">
       {top.map((r) => (
         <li key={r.label} title={`${r.label}: ${money ? "PKR " : ""}${fmtNum(r.value)}`}>
-          <div className="mb-0.5 flex justify-between gap-2 text-xs">
+          <div className="mb-1 flex justify-between gap-2 text-[12.5px]">
             <span className="truncate text-ink">{r.label}</span>
             <span className="shrink-0 text-muted">
               {money ? `PKR ${fmtCompact(r.value)}` : fmtNum(r.value)}
               {r.sub && <span className="ml-1 text-faint">{r.sub}</span>}
             </span>
           </div>
-          <div className="h-2 rounded-sm bg-surface-2">
-            <div className="h-2 rounded-sm" style={{ width: `${Math.max(2, (r.value / peak) * 100)}%`, background: color }} />
+          <div className="h-1.5 rounded-full bg-surface-2">
+            <div className="h-1.5 rounded-full" style={{ width: `${Math.max(2, (r.value / peak) * 100)}%`, background: color }} />
           </div>
         </li>
       ))}

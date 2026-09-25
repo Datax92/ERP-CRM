@@ -11,6 +11,7 @@ import { fmtDate, fmtMoney, fmtPct, num } from "@/lib/calc";
 import { clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type Store } from "@/lib/derive";
 import { MODULES, labelOf, statusTone, type FieldDef } from "@/lib/modules";
 import { conversionsFor, linkedRecords } from "@/lib/workflow";
+import { DealRoute } from "./TradeRoute";
 import type { CollectionName, LineItem, Rec } from "@/lib/types";
 
 export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName; id: string | "new"; onClose: () => void; onOpen: (col: CollectionName, id: string) => void }) {
@@ -25,7 +26,7 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
 
   if (id !== "new" && !existing) {
     return (
-      <Drawer open onClose={onClose} title={m.singular}>
+      <Drawer open onClose={onClose} eyebrow={m.singular} title="Not found">
         <p className="text-sm text-muted">{s.loading ? "Loading…" : "This record no longer exists."}</p>
       </Drawer>
     );
@@ -67,7 +68,7 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
     onClose();
   }
 
-  const title = isNew ? `New ${m.singular.toLowerCase()}` : `${m.singular} · ${labelOf(col, existing, s)}`;
+  const title = isNew ? `New ${m.singular.toLowerCase()}` : labelOf(col, existing, s);
 
   return (
     <Drawer
@@ -75,7 +76,9 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
       onClose={() => {
         if (!dirty || window.confirm("Discard unsaved changes?")) onClose();
       }}
+      eyebrow={isNew ? "New record" : m.singular}
       title={title}
+      aside={existing ? <DealRoute col={col} r={existing} s={s} onOpen={onOpen} /> : undefined}
       footer={
         <>
           {error && <span className="mr-auto self-center text-sm text-bad">{error}</span>}
@@ -197,7 +200,7 @@ function Workflow({ col, r, s, dirty, onOpen }: { col: CollectionName; r: Rec; s
           <button
             key={c.label}
             type="button"
-            className="btn"
+            className={`btn ${c === convs.find((x) => !x.disabled) && !dirty ? "btn-primary" : ""}`}
             title={dirty ? "Save your changes first" : c.disabled}
             disabled={dirty || !!c.disabled || !!busy}
             onClick={async () => {
@@ -252,11 +255,11 @@ function Linked({ col, r, s, onOpen }: { col: CollectionName; r: Rec; s: Store; 
 
 function Kv({ items }: { items: [string, ReactNode][] }) {
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:grid-cols-3 lg:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3 lg:grid-cols-4">
       {items.map(([k, v]) => (
         <div key={k}>
-          <dt className="text-xs text-muted">{k}</dt>
-          <dd className="font-medium">{v ?? "—"}</dd>
+          <dt className="eyebrow">{k}</dt>
+          <dd className="num mt-1 text-[15px] font-medium text-ink">{v ?? "—"}</dd>
         </div>
       ))}
     </dl>

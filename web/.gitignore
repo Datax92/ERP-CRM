@@ -50,3 +50,6 @@ dev.log
 test-results/
 playwright-report/
 tests/e2e/screenshots/
+
+.vercel
+.env*

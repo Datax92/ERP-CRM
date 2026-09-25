@@ -1,0 +1,9 @@
+node_modules
+.next
+out
+emulator-data
+test-results
+playwright-report
+tests/e2e/screenshots
+*.log
+.env*

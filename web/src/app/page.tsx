@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useStore } from "@/components/DataProvider";
-import { BarsChart, ChartCard, Kpis } from "@/components/charts";
+import { BarsChart, ChartCard } from "@/components/charts";
+import { PipelineRoute } from "@/components/TradeRoute";
 import { RecordLink } from "@/components/RecordDrawer";
-import { Badge, PageHeader } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { daysFromToday, fmtCompact, fmtDate, fmtMoney, lateness, num, rateOf, today } from "@/lib/calc";
 import { clientInfo, piInfo, poInfo, soInfo } from "@/lib/derive";
 import { outstandingReceivables } from "@/lib/finance";
@@ -55,44 +56,64 @@ export default function Dashboard() {
     ],
   ).slice(-12);
 
+  const salesYear = soYear.reduce((a, o) => a + num(o.amountPKR), 0);
+  const marginYear = soYear.reduce((a, o) => a + num(o.marginPKR), 0);
+  const receivable = outstandingReceivables(s);
+
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle={`Today is ${fmtDate(t)}`} />
-      <Kpis
-        items={[
-          { label: "Open RFQs", value: String(openRfqs.length), sub: duesRfq.length ? `${duesRfq.length} due soon or overdue` : undefined, tone: duesRfq.length ? "warn" : undefined },
-          { label: "Open quotations", value: String(openQuotes.length), sub: `PKR ${fmtCompact(openQuotes.reduce((a, q) => a + num(q.amountPKR), 0))}` },
-          { label: `Sales ${year} (PKR)`, value: fmtCompact(soYear.reduce((a, o) => a + num(o.amountPKR), 0)), sub: `${soYear.length} orders` },
-          { label: "Receivable (PKR)", value: fmtCompact(outstandingReceivables(s)), tone: "warn" },
-          { label: "Payable to vendors (PKR)", value: fmtCompact(payable), tone: "warn" },
-          { label: "Inactive clients", value: String(inactive), sub: `> ${s.settings.inactiveDays} days`, tone: inactive ? "warn" : undefined },
-        ]}
-      />
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <ChartCard title="Workflow conversion" subtitle="All-time records at each step">
-          <div className="space-y-2">
-            {funnel.map((f, i) => {
-              const top = funnel[0].n || 1;
-              const prev = i ? funnel[i - 1].n : 0;
-              return (
-                <Link key={f.label} href={f.href} className="block hover:opacity-80">
-                  <div className="mb-0.5 flex justify-between text-xs">
-                    <span>{f.label}</span>
-                    <span className="text-muted">
-                      {f.n}
-                      {i > 0 && prev ? <span className="ml-1 text-faint">({Math.round((f.n / prev) * 100)}% of previous)</span> : null}
-                    </span>
-                  </div>
-                  <div className="h-3 rounded-sm bg-surface-2">
-                    <div className="h-3 rounded-sm" style={{ width: `${f.n ? Math.max(2, (f.n / top) * 100) : 0}%`, background: "var(--series-1)" }} />
-                  </div>
-                </Link>
-              );
-            })}
+      <h1 className="sr-only">Dashboard</h1>
+      {/* Hero: the one number the owner opens the ledger for, set on the house colours. */}
+      <section className="relative mb-6 overflow-hidden rounded-2xl border border-sidebar-line bg-sidebar px-6 py-7 text-sidebar-ink shadow-[var(--shadow-lg)] sm:px-9 sm:py-9">
+        <svg aria-hidden viewBox="0 0 800 220" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.22]">
+          <path d="M-20 180 C 160 60, 300 200, 460 110 S 700 30, 840 70" fill="none" stroke="var(--brass)" strokeWidth="1.5" strokeDasharray="2 7" strokeLinecap="round" />
+          <circle cx="460" cy="110" r="4" fill="var(--brass)" />
+          <circle cx="700" cy="52" r="4" fill="var(--brass)" />
+        </svg>
+        <div className="relative flex flex-wrap items-end justify-between gap-8">
+          <div>
+            <div className="eyebrow !text-sidebar-muted">{greeting()} · {fmtDate(t)}</div>
+            <div className="mt-4 text-[13px] text-sidebar-muted">Sales booked in {year}</div>
+            <div className="display num mt-1 text-[52px] leading-none text-white sm:text-[64px]">
+              <span className="mr-2 align-top font-sans text-base font-medium tracking-wide text-brass">PKR</span>
+              {fmtCompact(salesYear)}
+            </div>
+            <div className="mt-3 text-[13px] text-sidebar-muted">
+              {soYear.length} orders · margin <span className="text-sidebar-ink">PKR {fmtCompact(marginYear)}</span>
+              {salesYear ? <span> ({((marginYear / salesYear) * 100).toFixed(1)}%)</span> : null}
+            </div>
           </div>
-        </ChartCard>
-        <ChartCard title="Sales and margin, last 12 months (PKR)">
+          <dl className="grid grid-cols-3 gap-6 sm:gap-10">
+            {(
+              [
+                ["To collect", fmtCompact(receivable), "/payments", true],
+                ["To pay vendors", fmtCompact(payable), "/purchase-orders", true],
+                ["Quiet clients", String(inactive), "/clients", false],
+              ] as const
+            ).map(([k, v, href, money]) => (
+              <Link key={k} href={href} className="group block">
+                <dt className="eyebrow !text-sidebar-muted group-hover:!text-brass">{k}</dt>
+                <dd className="display num mt-1.5 text-xl whitespace-nowrap text-white sm:text-2xl">
+                  {money && <span className="mr-1 font-sans text-[10px] font-medium tracking-wide text-brass">PKR</span>}
+                  {v}
+                </dd>
+              </Link>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      {/* Signature: every open deal, stop by stop along the trade route. */}
+      <section className="card mb-6 px-6 py-6 sm:px-8">
+        <div className="mb-6 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="display text-[22px] text-ink">On the route now</h2>
+          <span className="text-xs text-muted">Open business at each stop of the deal · tap a stop to see it</span>
+        </div>
+        <PipelineRoute s={s} />
+      </section>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <ChartCard title="Sales and margin" subtitle="Last 12 months, PKR" className="lg:col-span-2">
           <BarsChart
             data={monthly}
             money
@@ -102,11 +123,35 @@ export default function Dashboard() {
             ]}
           />
         </ChartCard>
+        <ChartCard title="Conversion" subtitle="All-time documents at each step">
+          <ol className="space-y-4">
+            {funnel.map((f, i) => {
+              const top = funnel[0].n || 1;
+              const prev = i ? funnel[i - 1].n : 0;
+              return (
+                <li key={f.label}>
+                  <Link href={f.href} className="group block">
+                    <div className="mb-1.5 flex items-baseline justify-between">
+                      <span className="text-[13px] text-ink group-hover:text-accent">{f.label}</span>
+                      <span className="num text-[13px] text-muted">
+                        <span className="font-medium text-ink">{f.n}</span>
+                        {i > 0 && prev ? <span className="ml-1.5 text-faint">{Math.round((f.n / prev) * 100)}%</span> : null}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-surface-2">
+                      <div className="h-1.5 rounded-full bg-accent" style={{ width: `${f.n ? Math.max(2, (f.n / top) * 100) : 0}%` }} />
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
+        </ChartCard>
 
-        <ChartCard title="Follow-ups due" subtitle="Next follow-up date is today or earlier">
+        <ChartCard title="Follow-ups due" subtitle="Next follow-up date is today or earlier" className="lg:col-span-1">
           <TodoList items={followUps.map(({ col, r }) => ({ col, r, note: `due ${fmtDate(r.nextFollowUpDate)}` }))} empty="No follow-ups due." />
         </ChartCard>
-        <ChartCard title="Needs attention">
+        <ChartCard title="Needs attention" subtitle="Late orders, RFQ deadlines, overdue payments, expiring documents" className="lg:col-span-2">
           <TodoList
             empty="Nothing overdue."
             items={[
@@ -125,15 +170,20 @@ export default function Dashboard() {
   );
 }
 
+function greeting() {
+  const h = Number(new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false }).format(new Date()));
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
 function TodoList({ items, empty }: { items: { col: CollectionName; r: Rec; note: string; tone?: "bad" | "warn" }[]; empty: string }) {
   const s = useStore();
   if (!items.length) return <p className="text-sm text-muted">{empty}</p>;
   return (
     <ul className="divide-y divide-line text-sm">
       {items.slice(0, 12).map(({ col, r, note, tone }) => (
-        <li key={col + r.id} className="flex items-center justify-between gap-2 py-1.5">
+        <li key={col + r.id} className="flex items-center justify-between gap-3 py-2.5">
           <span className="min-w-0 truncate">
-            <span className="mr-2 text-xs text-faint">{MODULES[col].singular}</span>
+            <span className="eyebrow mr-2 hidden sm:inline">{MODULES[col].singular}</span>
             <RecordLink col={col} id={r.id}>
               {labelOf(col, r, s) || r.prospectName || r.subject || "Open"}
             </RecordLink>

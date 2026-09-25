@@ -35,7 +35,7 @@ async function saveDrawer(page: Page) {
   await expect(drawer(page).getByRole("button", { name: "Saved" })).toBeVisible();
 }
 
-const title = (page: Page) => drawer(page).locator(".truncate.font-semibold").first();
+const title = (page: Page) => drawer(page).locator(".drawer-title").first();
 async function nextStep(page: Page, label: string | RegExp, heading: RegExp) {
   await drawer(page).getByRole("button", { name: label }).click();
   await expect(title(page)).toHaveText(heading);
@@ -72,7 +72,7 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
   await expectOverview(page, "Stage", "Lead");
 
   // --- RFQ from the client
-  await nextStep(page, /New RFQ for this client/, /^RFQ · RFQ-\d{4}-0001/);
+  await nextStep(page, /New RFQ for this client/, /^RFQ-\d{4}-0001/);
   await expect(field(page, /^Region/)).toHaveValue("Sindh");
   await drawer(page).getByRole("button", { name: "Add item" }).click();
   const r0 = itemRow(page, 0).locator("input, textarea");
@@ -84,7 +84,7 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/01-rfq.png`, fullPage: true });
 
   // --- Quotation (costing, offered rate, margin)
-  await nextStep(page, /Convert to quotation/, /^Quotation · QT-\d{4}-0001/);
+  await nextStep(page, /Convert to quotation/, /^QT-\d{4}-0001/);
   await expect(itemRow(page, 0).locator("textarea")).toHaveValue("Pump 50 m3/h");
   await itemRow(page, 0).locator("select").selectOption({ label: "Grundfos ME" });
   const q0 = itemRow(page, 0).locator('input[type="number"]');
@@ -99,37 +99,37 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
   await page.screenshot({ path: `${SHOTS}/02-quotation.png`, fullPage: true });
 
   // --- Sales order
-  await nextStep(page, /Convert to sales order/, /^Sales order · SO-\d{4}-0001/);
+  await nextStep(page, /Convert to sales order/, /^SO-\d{4}-0001/);
   await field(page, /Incoterm/).selectOption("CIF");
   await field(page, /Shipment date \(delivery\)/).fill("2026-03-10");
   await saveDrawer(page);
   await expectOverview(page, "Payment", "Unpaid");
 
   // --- Purchase order to the supplier named on the quotation line
-  await nextStep(page, /Issue PO to Grundfos ME/, /^Purchase order · PO-\d{4}-0001/);
+  await nextStep(page, /Issue PO to Grundfos ME/, /^PO-\d{4}-0001/);
   await expectOverview(page, "PO value", "PKR 1,000,000");
   await expect(field(page, /Supplier payment terms/)).toHaveValue("LC (Letter of Credit)");
-  await nextStep(page, /Record payment to vendor/, /^Payment · PAY-\d{4}-0001/);
+  await nextStep(page, /Record payment to vendor/, /^PAY-\d{4}-0001/);
   await page.goBack();
   await page.goBack();
-  await expect(title(page)).toHaveText(/^Sales order · SO-\d{4}-0001/);
+  await expect(title(page)).toHaveText(/^SO-\d{4}-0001/);
   await expectOverview(page, "PO issued to supplier", "Grundfos ME");
 
   // --- Proforma to client + partial payment receipt
-  await nextStep(page, /Create proforma invoice to client/, /^Proforma invoice · PI-\d{4}-0001/);
-  await nextStep(page, /Record payment received/, /^Payment · PAY-\d{4}-0002/);
+  await nextStep(page, /Create proforma invoice to client/, /^PI-\d{4}-0001/);
+  await nextStep(page, /Record payment received/, /^PAY-\d{4}-0002/);
   await field(page, /^Amount/).fill("500000");
   await field(page, /Payment method/).selectOption("Bank Transfer");
   await saveDrawer(page);
   await page.goBack();
-  await expect(title(page)).toHaveText(/^Proforma invoice · PI-\d{4}-0001/);
+  await expect(title(page)).toHaveText(/^PI-\d{4}-0001/);
   await expectOverview(page, "Pending", "PKR 740,000");
   await expectOverview(page, "Status", "Partially paid");
 
   // --- Delivery, delivered late
   await page.goto("/sales-orders/");
   await page.getByRole("cell", { name: /SO-\d{4}-0001/ }).click();
-  await nextStep(page, /Create delivery/, /^Delivery · DN-\d{4}-0001/);
+  await nextStep(page, /Create delivery/, /^DN-\d{4}-0001/);
   await expect(field(page, /Incoterm/)).toHaveValue("CIF");
   await field(page, /Delivered on/).fill("2026-03-20");
   await field(page, /^Status/).selectOption("Delivered");

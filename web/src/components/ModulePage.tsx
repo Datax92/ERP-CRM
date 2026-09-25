@@ -105,23 +105,23 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
       />
 
       {/* Filters: one row above both the table and the reports */}
-      <div className="card mb-3 flex flex-wrap items-end gap-2 p-3">
+      <div className="card mb-5 flex flex-wrap items-end gap-3 p-4">
         <label className="relative min-w-48 flex-1">
           <Search size={14} className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint" />
           <input className="field pl-8" placeholder="Search…" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} />
         </label>
-        <label className="flex flex-col text-xs text-muted">
-          From
-          <input type="date" className="field mt-0.5" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
+        <label className="flex flex-col gap-1.5">
+          <span className="eyebrow">From</span>
+          <input type="date" className="field" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
         </label>
-        <label className="flex flex-col text-xs text-muted">
-          To
-          <input type="date" className="field mt-0.5" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
+        <label className="flex flex-col gap-1.5">
+          <span className="eyebrow">To</span>
+          <input type="date" className="field" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
         </label>
         {m.filters.map((def) => (
-          <label key={def.key} className="flex flex-col text-xs text-muted">
-            {def.label}
-            <select className="field mt-0.5 max-w-44" value={f.sel[def.key] ?? ""} onChange={(e) => setF({ ...f, sel: { ...f.sel, [def.key]: e.target.value } })}>
+          <label key={def.key} className="flex flex-col gap-1.5">
+            <span className="eyebrow">{def.label}</span>
+            <select className="field max-w-44" value={f.sel[def.key] ?? ""} onChange={(e) => setF({ ...f, sel: { ...f.sel, [def.key]: e.target.value } })}>
               <option value="">All</option>
               {def.options(s).map((o) => (
                 <option key={o}>{o}</option>
@@ -137,12 +137,14 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
       </div>
 
       {report && (
-        <div className="mb-3 flex gap-1 border-b border-line">
+        <div role="tablist" className="mb-5 inline-flex rounded-xl border border-line bg-surface p-1 shadow-[var(--shadow)]">
           {(["records", "reports"] as const).map((t) => (
             <button
               key={t}
+              role="tab"
+              aria-selected={tab === t}
               onClick={() => setTab(t)}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm capitalize ${tab === t ? "border-accent font-medium text-ink" : "border-transparent text-muted hover:text-ink"}`}
+              className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition ${tab === t ? "bg-accent text-accent-ink shadow-sm" : "text-muted hover:text-ink"}`}
             >
               {t === "records" ? `Records (${filtered.length})` : "Reports & graphs"}
             </button>
@@ -159,11 +161,11 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-line bg-surface-2 text-left text-xs text-muted">
+            <thead className="border-b border-line bg-surface-2/70 text-left">
               <tr>
                 {m.columns.map((c) => (
-                  <th key={c.key} className={`px-3 py-2 font-medium whitespace-nowrap ${c.align === "right" ? "text-right" : ""}`}>
-                    <button className="inline-flex items-center gap-1 hover:text-ink" onClick={() => setSort({ key: c.key, dir: sort.key === c.key ? (sort.dir === 1 ? -1 : 1) : -1 })}>
+                  <th key={c.key} className={`px-4 py-3 font-medium whitespace-nowrap first:pl-5 last:pr-5 ${c.align === "right" ? "text-right" : ""}`}>
+                    <button className="eyebrow inline-flex items-center gap-1 hover:!text-ink" onClick={() => setSort({ key: c.key, dir: sort.key === c.key ? (sort.dir === 1 ? -1 : 1) : -1 })}>
                       {c.label}
                       {sort.key === c.key && (sort.dir === 1 ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
                     </button>
@@ -173,10 +175,13 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
             </thead>
             <tbody>
               {sorted.slice(0, limit).map((r) => (
-                <tr key={r.id} className="cursor-pointer border-b border-line last:border-0 hover:bg-surface-2" onClick={() => openRecord(col, r.id)}>
-                  {m.columns.map((c) => (
-                    <td key={c.key} className={`max-w-72 truncate px-3 py-2 ${c.align === "right" ? "text-right whitespace-nowrap" : ""}`}>
-                      <CellView cell={c.cell(r, s)} />
+                <tr key={r.id} className="group cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-accent-soft/40" onClick={() => openRecord(col, r.id)}>
+                  {m.columns.map((c, ci) => (
+                    <td
+                      key={c.key}
+                      className={`max-w-72 truncate px-4 py-3 first:pl-5 last:pr-5 ${c.align === "right" ? "num text-right whitespace-nowrap" : ""} ${ci === 0 ? "font-medium text-ink" : "text-ink/85"}`}
+                    >
+                      <CellView cell={c.cell(r, s)} serial={c.key === "serial"} />
                     </td>
                   ))}
                 </tr>
