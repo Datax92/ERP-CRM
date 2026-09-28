@@ -131,15 +131,15 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
           </Section>
         )}
 
-        {!itemsMode && (data.amount != null || (m.amountField && data[m.amountField] != null)) && (
+        {!itemsMode && (col === "payments" || col === "expenses" || col === "financeEntries" || col === "investors" || col === "companyDocs" || data.amount != null || (m.amountField && data[m.amountField] != null)) && (
           <Section title="Total Price & Currency Converter">
             <TotalPriceConverter
-              amount={num(data.amount ?? data[m.amountField!])}
+              amount={num(data.amount ?? (m.amountField ? data[m.amountField] : undefined) ?? (num(data.qty || 1) * num(data.unitCost)))}
               currency={data.currency || "PKR"}
               exchangeRate={typeof data.exchangeRate === "number" ? data.exchangeRate : Number(data.exchangeRate) || 1}
               onRateChange={(rate) => set({ exchangeRate: rate })}
               mode="amount"
-              label={col === "payments" ? "Payment amount" : col === "expenses" ? "Expense amount" : "Total amount"}
+              label={col === "payments" ? "Payment amount" : col === "expenses" ? "Expense amount" : col === "investors" ? "Investment principal" : "Total amount"}
             />
           </Section>
         )}

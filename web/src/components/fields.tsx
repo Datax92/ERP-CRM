@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Paperclip, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { saveSettings } from "@/lib/db";
@@ -182,14 +182,39 @@ export function MultiSelect({ list, value, onChange }: { list: ListKey; value: s
 
 export function CurrencyField({ data, set }: { data: Rec; set: (patch: Partial<Rec>) => void }) {
   const [busy, setBusy] = useState(false);
+  const [liveRate, setLiveRate] = useState<number | null>(null);
   const [err, setErr] = useState("");
   const currency = data.currency || "PKR";
+
+  useEffect(() => {
+    if (currency && currency !== "PKR") {
+      let cancelled = false;
+      (async () => {
+        try {
+          const rate = await fetchRateToPKR(currency);
+          if (!cancelled) {
+            setLiveRate(rate);
+            if (!data.exchangeRate || data.exchangeRate === 1) {
+              set({ exchangeRate: rate });
+            }
+          }
+        } catch {
+          // Ignore
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [currency]);
 
   async function fetchRate(cur: string) {
     setBusy(true);
     setErr("");
     try {
-      set({ exchangeRate: await fetchRateToPKR(cur) });
+      const rate = await fetchRateToPKR(cur, true);
+      setLiveRate(rate);
+      set({ exchangeRate: rate });
     } catch {
       setErr("Couldn't fetch rate — enter it manually.");
     } finally {
@@ -213,7 +238,7 @@ export function CurrencyField({ data, set }: { data: Rec; set: (patch: Partial<R
         {currency !== "PKR" && (
           <>
             <input
-              className="field"
+              className="field font-mono"
               type="number"
               step="any"
               min="0"
@@ -222,13 +247,29 @@ export function CurrencyField({ data, set }: { data: Rec; set: (patch: Partial<R
               onChange={(e) => set({ exchangeRate: e.target.value === "" ? "" : Number(e.target.value) })}
               required
             />
-            <button type="button" className="btn shrink-0 px-2" title="Fetch today's rate" onClick={() => fetchRate(currency)} disabled={busy}>
+            <button type="button" className="btn shrink-0 px-2" title="Fetch today's real-time live rate" onClick={() => fetchRate(currency)} disabled={busy}>
               <RefreshCw size={14} className={busy ? "animate-spin" : ""} />
             </button>
           </>
         )}
       </div>
-      {currency !== "PKR" && <p className="mt-1 text-xs text-faint">1 {currency} = {data.exchangeRate || "?"} PKR</p>}
+      {currency !== "PKR" && (
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-faint">
+            1 {currency} = {data.exchangeRate || "?"} PKR
+          </span>
+          {liveRate != null && Math.abs((Number(data.exchangeRate) || 0) - liveRate) > 0.05 && (
+            <button
+              type="button"
+              onClick={() => set({ exchangeRate: liveRate })}
+              className="font-medium text-accent hover:underline"
+              title="Update to today's real-time market rate"
+            >
+              · Today&apos;s live: {liveRate} [Apply]
+            </button>
+          )}
+        </div>
+      )}
       {err && <p className="mt-1 text-xs text-bad">{err}</p>}
     </div>
   );
