@@ -48,6 +48,9 @@ export default function Dashboard() {
   const docs = s.companyDocs.filter((d) => ["Expired", "Expiring soon"].includes(companyDocStatus(d)));
   const inactive = s.clients.filter((c) => !clientInfo(c, s).active).length;
 
+  const todayTasks = (s.schedule ?? []).filter((tItem) => tItem.date === t && !tItem.isDailyLog);
+  const pendingTodayTasks = todayTasks.filter((tItem) => tItem.status !== "Completed");
+
   const monthly = monthlyMeasures(
     s.salesOrders.filter((o) => o.status !== "Cancelled"),
     [
@@ -146,6 +149,58 @@ export default function Dashboard() {
               );
             })}
           </ol>
+        </ChartCard>
+
+        <ChartCard
+          title="Today's Schedule & Tasks"
+          subtitle={`${pendingTodayTasks.length} pending · ${todayTasks.length - pendingTodayTasks.length} completed`}
+          className="lg:col-span-1"
+        >
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="font-semibold text-ink">Daily Agenda</span>
+            <Link href="/schedule" className="font-medium text-accent hover:underline">
+              Open Planner →
+            </Link>
+          </div>
+          {todayTasks.length === 0 ? (
+            <p className="text-sm text-muted">
+              No tasks scheduled for today.{" "}
+              <Link href="/schedule" className="text-accent underline font-medium">
+                Plan your day
+              </Link>
+            </p>
+          ) : (
+            <ul className="divide-y divide-line text-xs">
+              {todayTasks.slice(0, 6).map((task) => (
+                <li key={task.id} className="flex items-center justify-between gap-2 py-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`size-2 rounded-full shrink-0 ${
+                        task.status === "Completed"
+                          ? "bg-good"
+                          : task.priority === "Urgent"
+                            ? "bg-bad"
+                            : task.priority === "High"
+                              ? "bg-warn"
+                              : "bg-accent"
+                      }`}
+                    />
+                    <Link
+                      href={`/schedule?id=${task.id}`}
+                      className={`truncate font-medium text-ink hover:text-accent ${
+                        task.status === "Completed" ? "line-through text-muted" : ""
+                      }`}
+                    >
+                      {task.time ? `${task.time} ` : ""}{task.title}
+                    </Link>
+                  </div>
+                  <Badge tone={task.status === "Completed" ? "good" : task.priority === "Urgent" ? "bad" : "muted"}>
+                    {task.status === "Completed" ? "Done" : task.priority || "Pending"}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
         </ChartCard>
 
         <ChartCard title="Follow-ups due" subtitle="Next follow-up date is today or earlier" className="lg:col-span-1">

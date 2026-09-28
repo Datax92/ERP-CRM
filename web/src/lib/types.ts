@@ -17,7 +17,8 @@ export type CollectionName =
   | "companyDocs"
   | "investors"
   | "expenses"
-  | "financeEntries";
+  | "financeEntries"
+  | "schedule";
 
 export const COLLECTIONS: CollectionName[] = [
   "clients",
@@ -34,6 +35,7 @@ export const COLLECTIONS: CollectionName[] = [
   "investors",
   "expenses",
   "financeEntries",
+  "schedule",
 ];
 
 export type Attachment = {
@@ -79,6 +81,8 @@ export type Settings = {
   companyDocCategories: string[];
   financeTypes: string[];
   financeCategories: string[];
+  taskCategories: string[];
+  taskPriorities: string[];
   inactiveDays: number;
   companyName: string;
   imgbbApiKey: string;

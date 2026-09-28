@@ -44,6 +44,12 @@ export const STAGES: Partial<Record<CollectionName, StageDef>> = {
     won: ["Delivered"],
     lost: ["Returned", "Cancelled"],
   },
+  schedule: {
+    options: ["Pending", "In progress", "Completed", "Postponed", "Cancelled"],
+    open: ["Pending", "In progress"],
+    won: ["Completed"],
+    lost: ["Cancelled"],
+  },
 };
 
 export const CLIENT_LIFECYCLE = ["Lead", "Inquiry received", "Offer given", "Order received", "Delivered"] as const;

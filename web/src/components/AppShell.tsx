@@ -25,13 +25,20 @@ import {
   Wallet,
   PiggyBank,
   Coins,
+  CalendarCheck,
 } from "lucide-react";
 import { fb } from "@/lib/firebase";
 import { useStore } from "./DataProvider";
 import { CurrencyModal } from "./CurrencyModal";
 
 export const NAV: { group: string; items: { href: string; label: string; icon: typeof Users }[] }[] = [
-  { group: "", items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }] },
+  {
+    group: "",
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/schedule", label: "Daily Schedule & Diary", icon: CalendarCheck },
+    ],
+  },
   {
     group: "Contacts",
     items: [

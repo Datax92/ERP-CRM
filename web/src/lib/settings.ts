@@ -61,6 +61,18 @@ export const DEFAULT_SETTINGS: Settings = {
   companyDocCategories: ["Prequalification", "Tax", "Legal", "Registration", "Certificate", "Other"],
   financeTypes: ["Loan", "Bank Finance", "Investor", "Other"],
   financeCategories: ["Bank Charges", "Other Income", "Owner Contribution", "Owner Withdrawal", "Transfer", "Adjustment", "Other"],
+  taskCategories: [
+    "Client Follow-up",
+    "Supplier Negotiation",
+    "Quotation & Pricing",
+    "Shipment & Customs",
+    "Payment & Banking",
+    "Meeting / Call",
+    "Site Visit / Inspection",
+    "Admin & Operations",
+    "General Note",
+  ],
+  taskPriorities: ["Urgent", "High", "Medium", "Low"],
 };
 
 export const LIST_LABELS: Record<ListKey, string> = {
@@ -81,6 +93,8 @@ export const LIST_LABELS: Record<ListKey, string> = {
   companyDocCategories: "Company document categories",
   financeTypes: "Investor / finance types",
   financeCategories: "Account entry categories",
+  taskCategories: "Schedule & task categories",
+  taskPriorities: "Task priority levels",
 };
 
 export function mergeSettings(stored: Partial<Settings> | undefined): Settings {

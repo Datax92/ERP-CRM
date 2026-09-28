@@ -106,6 +106,8 @@ export function labelOf(col: CollectionName, r: Rec | undefined, s: Store): stri
       return [r.serial, r.type === "From Supplier" ? supplierName(r, s) : clientName(r, s)].filter(Boolean).join(" · ");
     case "investors":
       return r.name ?? "";
+    case "schedule":
+      return [r.date, r.title].filter(Boolean).join(" · ") || r.serial || "Task";
     default:
       return r.serial ?? r.title ?? r.description ?? r.id;
   }
@@ -685,6 +687,80 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     filters: [
       { key: "direction", label: "Direction", options: () => ["In", "Out"], get: (r) => r.direction ?? "" },
       { key: "category", label: "Category", options: (s) => s.settings.financeCategories, get: (r) => r.category ?? "" },
+    ],
+  },
+
+  schedule: {
+    col: "schedule",
+    title: "Daily Schedule & Diary",
+    singular: "Task / Daily log",
+    href: "/schedule",
+    prefix: "TSK",
+    searchKeys: ["title", "notes", "diaryNotes", "category", "assignedTo", "priority"],
+    defaults: () => ({
+      date: today(),
+      time: "09:00",
+      category: "Client Follow-up",
+      priority: "Medium",
+      status: "Pending",
+      title: "",
+      assignedTo: "",
+      notes: "",
+      diaryNotes: "",
+    }),
+    fields: [
+      { name: "date", label: "Date", type: "date", required: true },
+      { name: "time", label: "Time / Schedule", type: "text" },
+      { name: "title", label: "Task / Entry title", type: "text", required: true, wide: true },
+      { name: "category", label: "Category", type: "select", list: "taskCategories", required: true },
+      { name: "priority", label: "Priority", type: "select", list: "taskPriorities", required: true },
+      statusField("schedule"),
+      { name: "assignedTo", label: "Assigned to / Person responsible", type: "text" },
+      { name: "clientId", label: "Linked client", type: "ref", ref: "clients" },
+      { name: "supplierId", label: "Linked supplier", type: "ref", ref: "suppliers" },
+      { name: "salesOrderId", label: "Linked sales order", type: "ref", ref: "salesOrders" },
+      { name: "purchaseOrderId", label: "Linked purchase order", type: "ref", ref: "purchaseOrders" },
+      { name: "notes", label: "Task details & outcome", type: "textarea", wide: true },
+      { name: "diaryNotes", label: "Daily diary & notes for the day", type: "textarea", wide: true },
+    ],
+    columns: [
+      { key: "serial", label: "Task no.", cell: (r) => t(r.serial) },
+      { key: "date", label: "Date", cell: (r) => date(r.date) },
+      { key: "time", label: "Time", cell: (r) => t(r.time) },
+      { key: "title", label: "Title / Task", cell: (r) => t(r.title) },
+      { key: "category", label: "Category", cell: (r) => t(r.category) },
+      {
+        key: "priority",
+        label: "Priority",
+        cell: (r) => {
+          const p = (r.priority ?? "").toLowerCase();
+          const tone = p === "urgent" ? "bad" : p === "high" ? "warn" : p === "medium" ? "info" : "muted";
+          return { text: r.priority || "Medium", tone };
+        },
+      },
+      {
+        key: "party",
+        label: "Client / Supplier",
+        cell: (r, s) => t(clientName(r, s) || supplierName(r, s)),
+      },
+      { key: "assignedTo", label: "Assigned to", cell: (r) => t(r.assignedTo) },
+      { key: "status", label: "Status", cell: (r) => badge(r.status) },
+    ],
+    filters: [
+      statusFilter("schedule"),
+      {
+        key: "priority",
+        label: "Priority",
+        options: (s) => s.settings.taskPriorities,
+        get: (r) => r.priority ?? "",
+      },
+      {
+        key: "category",
+        label: "Category",
+        options: (s) => s.settings.taskCategories,
+        get: (r) => r.category ?? "",
+      },
+      clientFilter,
     ],
   },
 };
