@@ -5,6 +5,7 @@ import { Plus, X } from "lucide-react";
 import { useStore } from "@/components/DataProvider";
 import { PageHeader, Section } from "@/components/ui";
 import { saveSettings } from "@/lib/db";
+import { testImgBBApiKey } from "@/lib/storage";
 import { LIST_LABELS } from "@/lib/settings";
 import { STAGES } from "@/lib/stages";
 import { MODULES } from "@/lib/modules";
@@ -20,7 +21,22 @@ function SettingsForm() {
   const s = useStore();
   const [draft, setDraft] = useState<Settings>(s.settings);
   const [saved, setSaved] = useState("");
+  const [testingKey, setTestingKey] = useState(false);
+  const [keyTestResult, setKeyTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(s.settings);
+
+  async function handleTestKey() {
+    const key = (draft.imgbbApiKey || process.env.NEXT_PUBLIC_IMGBB_API_KEY || "").trim();
+    if (!key) return;
+    setTestingKey(true);
+    setKeyTestResult(null);
+    try {
+      const res = await testImgBBApiKey(key);
+      setKeyTestResult(res);
+    } finally {
+      setTestingKey(false);
+    }
+  }
 
   async function save() {
     await saveSettings(draft);
@@ -55,6 +71,55 @@ function SettingsForm() {
             <span className="text-muted">A client is inactive after (days without activity)</span>
             <input className="field" type="number" min={1} value={draft.inactiveDays} onChange={(e) => setDraft({ ...draft, inactiveDays: Number(e.target.value) || 90 })} />
           </label>
+        </div>
+      </Section>
+      <Section title="Attachments & Image Hosting (ImgBB)">
+        <div className="max-w-xl space-y-3 text-sm">
+          <p className="text-muted">
+            Configure ImgBB for storing attachments (photos, invoices, receipts, and order documents) across the ERP without requiring a paid Firebase Storage plan.
+          </p>
+          <label className="block space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-medium text-ink">ImgBB API Key</span>
+              {process.env.NEXT_PUBLIC_IMGBB_API_KEY && (
+                <span className="text-xs text-accent">Default set in environment</span>
+              )}
+            </div>
+            <input
+              type="text"
+              className="field font-mono"
+              placeholder={process.env.NEXT_PUBLIC_IMGBB_API_KEY ? "Using NEXT_PUBLIC_IMGBB_API_KEY (or enter custom key)" : "Paste your ImgBB API key here"}
+              value={draft.imgbbApiKey ?? ""}
+              onChange={(e) => {
+                setDraft({ ...draft, imgbbApiKey: e.target.value });
+                setKeyTestResult(null);
+              }}
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="btn text-xs"
+              onClick={handleTestKey}
+              disabled={testingKey || (!draft.imgbbApiKey && !process.env.NEXT_PUBLIC_IMGBB_API_KEY)}
+            >
+              {testingKey ? "Testing connection…" : "Test API Key"}
+            </button>
+            <a
+              href="https://api.imgbb.com/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-accent hover:underline inline-flex items-center gap-1"
+            >
+              Get a free API key at api.imgbb.com →
+            </a>
+          </div>
+          {keyTestResult && (
+            <p className={`text-xs ${keyTestResult.ok ? "text-good" : "text-bad"}`}>
+              {keyTestResult.ok ? "✓ " : "✗ "}
+              {keyTestResult.message}
+            </p>
+          )}
         </div>
       </Section>
       <div className="grid grid-cols-1 gap-x-4 lg:grid-cols-2">

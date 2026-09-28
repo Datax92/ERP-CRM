@@ -8,6 +8,7 @@ import { fetchRateToPKR } from "@/lib/fx";
 import { uploadAttachment } from "@/lib/storage";
 import { emptyItem, fmtNum, fmtPct, itemTotals, num } from "@/lib/calc";
 import { labelOf } from "@/lib/modules";
+import { TotalPriceConverter } from "./TotalPriceConverter";
 import type { Attachment, CollectionName, ItemsMode, LineItem, ListKey, Rec } from "@/lib/types";
 
 const NEW = "__new__";
@@ -233,7 +234,21 @@ export function CurrencyField({ data, set }: { data: Rec; set: (patch: Partial<R
   );
 }
 
-export function ItemsEditor({ mode, items, onChange, currency }: { mode: ItemsMode; items: LineItem[]; onChange: (items: LineItem[]) => void; currency: string }) {
+export function ItemsEditor({
+  mode,
+  items,
+  onChange,
+  currency,
+  exchangeRate,
+  onRateChange,
+}: {
+  mode: ItemsMode;
+  items: LineItem[];
+  onChange: (items: LineItem[]) => void;
+  currency: string;
+  exchangeRate?: number;
+  onRateChange?: (rate: number) => void;
+}) {
   const s = useStore();
   const rows = items ?? [];
   const cost = mode !== "basic";
@@ -354,6 +369,20 @@ export function ItemsEditor({ mode, items, onChange, currency }: { mode: ItemsMo
           </dl>
         )}
       </div>
+
+      {cost && (
+        <TotalPriceConverter
+          amount={sale ? t.totalPrice : t.totalCost}
+          currency={currency}
+          exchangeRate={exchangeRate}
+          onRateChange={onRateChange}
+          totalCost={t.totalCost}
+          margin={t.margin}
+          marginPct={t.marginPct}
+          mode={mode}
+          label={sale ? "Total price" : "Total cost"}
+        />
+      )}
     </div>
   );
 }
@@ -368,6 +397,7 @@ function Stat({ label, value, strong, bad }: { label: string; value: string; str
 }
 
 export function Attachments({ col, recordId, value, onChange }: { col: CollectionName; recordId: string; value: Attachment[]; onChange: (v: Attachment[]) => void }) {
+  const { settings } = useStore();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(0);
   const [err, setErr] = useState("");
@@ -379,18 +409,21 @@ export function Attachments({ col, recordId, value, onChange }: { col: Collectio
     const added: Attachment[] = [];
     setBusy(files.length);
     for (const f of Array.from(files)) {
-      if (f.size > 25 * 1024 * 1024) {
-        setErr(`${f.name} is over 25 MB.`);
+      if (f.size > 32 * 1024 * 1024) {
+        setErr(`${f.name} is over 32 MB.`);
         continue;
       }
       try {
-        added.push(await uploadAttachment(col, recordId, f));
-      } catch {
-        setErr(`Upload failed for ${f.name}. Check your connection and Firebase Storage setup.`);
+        added.push(await uploadAttachment(col, recordId, f, settings.imgbbApiKey));
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : `Upload failed for ${f.name}.`;
+        setErr(msg);
       }
     }
     setBusy(0);
-    onChange([...list, ...added]);
+    if (added.length > 0) {
+      onChange([...list, ...added]);
+    }
     if (input.current) input.current.value = "";
   }
 
@@ -403,29 +436,52 @@ export function Attachments({ col, recordId, value, onChange }: { col: Collectio
       }}
     >
       <ul className="space-y-1">
-        {list.map((a, i) => (
-          <li key={a.path + i} className="flex items-center justify-between gap-2 rounded-md border border-line px-2 py-1.5 text-sm">
-            <a href={a.url} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-1.5 text-accent hover:underline">
-              <Paperclip size={14} className="shrink-0" />
-              <span className="truncate">{a.name}</span>
-            </a>
-            <span className="flex shrink-0 items-center gap-2 text-xs text-faint">
-              {(a.size / 1024).toFixed(0)} KB
-              <button type="button" className="hover:text-bad" onClick={() => onChange(list.filter((_, j) => j !== i))} aria-label={`Remove ${a.name}`}>
-                <X size={14} />
-              </button>
-            </span>
-          </li>
-        ))}
+        {list.map((a, i) => {
+          const isImg = a.thumbUrl || a.provider === "imgbb" || /\.(jpe?g|png|gif|webp|svg)$/i.test(a.name);
+          return (
+            <li key={a.path + i} className="flex items-center justify-between gap-2 rounded-md border border-line px-2 py-1.5 text-sm">
+              <a href={a.url} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 text-accent hover:underline">
+                {isImg ? (
+                  <img
+                    src={a.thumbUrl || a.url}
+                    alt={a.name}
+                    className="h-7 w-7 rounded object-cover border border-line shrink-0"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <Paperclip size={14} className="shrink-0 text-muted" />
+                )}
+                <span className="truncate">{a.name}</span>
+              </a>
+              <span className="flex shrink-0 items-center gap-2 text-xs text-faint">
+                {(a.size / 1024).toFixed(0)} KB
+                <button type="button" className="hover:text-bad" onClick={() => onChange(list.filter((_, j) => j !== i))} aria-label={`Remove ${a.name}`}>
+                  <X size={14} />
+                </button>
+              </span>
+            </li>
+          );
+        })}
       </ul>
       <div className="mt-2 flex items-center gap-2">
         <button type="button" className="btn" onClick={() => input.current?.click()} disabled={busy > 0}>
           <Paperclip size={14} /> {busy ? `Uploading ${busy}…` : "Attach files"}
         </button>
         <span className="text-xs text-faint">or drop files here</span>
-        <input ref={input} type="file" multiple className="hidden" onChange={(e) => upload(e.target.files)} />
+        <input ref={input} type="file" multiple className="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" onChange={(e) => upload(e.target.files)} />
       </div>
       {err && <p className="mt-1 text-xs text-bad">{err}</p>}
+      {!settings.imgbbApiKey && !process.env.NEXT_PUBLIC_IMGBB_API_KEY && list.length === 0 && !err && (
+        <p className="mt-1 text-xs text-muted">
+          Attach photos, scans, or receipts (powered by ImgBB). Configure your key in{" "}
+          <a href="/settings" className="text-accent underline">
+            Settings
+          </a>
+          .
+        </p>
+      )}
     </div>
   );
 }

@@ -24,9 +24,11 @@ import {
   Factory,
   Wallet,
   PiggyBank,
+  Coins,
 } from "lucide-react";
 import { fb } from "@/lib/firebase";
 import { useStore } from "./DataProvider";
+import { CurrencyModal } from "./CurrencyModal";
 
 export const NAV: { group: string; items: { href: string; label: string; icon: typeof Users }[] }[] = [
   { group: "", items: [{ href: "/", label: "Dashboard", icon: LayoutDashboard }] },
@@ -90,6 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, settings, loading } = useStore();
   const [open, setOpen] = useState(false);
+  const [converterOpen, setConverterOpen] = useState(false);
 
   const nav = (
     <nav className="flex h-full flex-col text-sidebar-ink">
@@ -125,7 +128,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         ))}
       </div>
-      <div className="m-3 flex items-center gap-2.5 rounded-lg border border-sidebar-line bg-sidebar-2 p-2.5">
+
+      <button
+        type="button"
+        onClick={() => setConverterOpen(true)}
+        className="mx-3 mb-2 flex items-center justify-between rounded-lg border border-sidebar-line bg-sidebar-2/80 px-3 py-2 text-xs text-sidebar-ink transition hover:bg-sidebar-2"
+      >
+        <span className="flex items-center gap-2">
+          <Coins size={14} className="text-brass" />
+          <span className="font-medium">Currency Converter</span>
+        </span>
+        <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-brass">Live FX</span>
+      </button>
+
+      <div className="m-3 mt-0 flex items-center gap-2.5 rounded-lg border border-sidebar-line bg-sidebar-2 p-2.5">
         <div className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-semibold">{(user.email ?? "?")[0]!.toUpperCase()}</div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-xs text-sidebar-ink">{user.email}</div>
@@ -159,6 +175,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
           <div className="display grid size-8 place-items-center rounded-md border border-brass/50 text-sm text-brass">{initials(settings.companyName)}</div>
           <span className="truncate text-sm font-semibold">{settings.companyName}</span>
+          <button
+            type="button"
+            onClick={() => setConverterOpen(true)}
+            className="ml-auto grid size-9 place-items-center rounded-lg border border-sidebar-line text-sidebar-ink"
+            aria-label="Currency converter"
+            title="Currency converter"
+          >
+            <Coins size={17} className="text-brass" />
+          </button>
         </header>
         <main className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
           {loading ? (
@@ -177,6 +202,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </main>
       </div>
+      <CurrencyModal open={converterOpen} onClose={() => setConverterOpen(false)} />
     </div>
   );
 }

@@ -42,6 +42,9 @@ export type Attachment = {
   path: string;
   size: number;
   uploadedAt: string;
+  thumbUrl?: string;
+  deleteUrl?: string;
+  provider?: "imgbb" | "firebase";
 };
 
 /** basic = description/qty only, cost = + unit cost, sale = + unit cost and offered price */
@@ -78,8 +81,9 @@ export type Settings = {
   financeCategories: string[];
   inactiveDays: number;
   companyName: string;
+  imgbbApiKey: string;
 };
 
 export type ListKey = {
-  [K in keyof Settings]: Settings[K] extends string[] ? K : never;
+  [K in keyof Settings]-?: Settings[K] extends string[] ? K : never;
 }[keyof Settings];

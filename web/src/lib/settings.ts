@@ -4,6 +4,7 @@ import type { Settings, ListKey } from "./types";
 export const DEFAULT_SETTINGS: Settings = {
   companyName: "My Company",
   inactiveDays: 90,
+  imgbbApiKey: "",
   regions: [
     "Punjab",
     "Sindh",

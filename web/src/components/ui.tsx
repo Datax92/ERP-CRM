@@ -29,6 +29,14 @@ export function Badge({ tone = "info", children }: { tone?: Cell["tone"]; childr
 export function CellView({ cell, serial }: { cell: Cell; serial?: boolean }) {
   if (cell.tone) return <Badge tone={cell.tone}>{cell.text}</Badge>;
   if (serial && cell.text !== "—") return <span className="serial text-ink">{cell.text}</span>;
+  if (cell.subtext) {
+    return (
+      <div className="inline-block">
+        <div>{cell.text}</div>
+        <div className="text-[11px] font-normal text-muted">{cell.subtext}</div>
+      </div>
+    );
+  }
   return <>{cell.text}</>;
 }
 

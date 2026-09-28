@@ -12,6 +12,7 @@ import { clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type St
 import { MODULES, labelOf, statusTone, type FieldDef } from "@/lib/modules";
 import { conversionsFor, linkedRecords } from "@/lib/workflow";
 import { DealRoute } from "./TradeRoute";
+import { TotalPriceConverter } from "./TotalPriceConverter";
 import type { CollectionName, LineItem, Rec } from "@/lib/types";
 
 export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName; id: string | "new"; onClose: () => void; onOpen: (col: CollectionName, id: string) => void }) {
@@ -119,7 +120,27 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
 
         {itemsMode && (
           <Section title={m.fields.find((f) => f.type === "items")?.label ?? "Items"}>
-            <ItemsEditor mode={itemsMode} items={data.items} currency={data.currency || "PKR"} onChange={(items) => set({ items })} />
+            <ItemsEditor
+              mode={itemsMode}
+              items={data.items}
+              currency={data.currency || "PKR"}
+              exchangeRate={typeof data.exchangeRate === "number" ? data.exchangeRate : Number(data.exchangeRate) || 1}
+              onRateChange={(rate) => set({ exchangeRate: rate })}
+              onChange={(items) => set({ items })}
+            />
+          </Section>
+        )}
+
+        {!itemsMode && (data.amount != null || (m.amountField && data[m.amountField] != null)) && (
+          <Section title="Total Price & Currency Converter">
+            <TotalPriceConverter
+              amount={num(data.amount ?? data[m.amountField!])}
+              currency={data.currency || "PKR"}
+              exchangeRate={typeof data.exchangeRate === "number" ? data.exchangeRate : Number(data.exchangeRate) || 1}
+              onRateChange={(rate) => set({ exchangeRate: rate })}
+              mode="amount"
+              label={col === "payments" ? "Payment amount" : col === "expenses" ? "Expense amount" : "Total amount"}
+            />
           </Section>
         )}
 

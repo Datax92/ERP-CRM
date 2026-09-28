@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { fmtDate, fmtMoney, fmtPct, num, today } from "./calc";
+import { fmtDate, fmtMoney, fmtNum, fmtPct, num, today } from "./calc";
 import { clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type Store } from "./derive";
 import { STAGES } from "./stages";
 import type { CollectionName, ItemsMode, ListKey, Rec } from "./types";
@@ -33,8 +33,8 @@ export type FieldDef = {
   autofill?: (value: any, data: Rec, s: Store) => Partial<Rec>;
 };
 
-/** Cell text for tables; `tone` drives the status badge colour. */
-export type Cell = { text: string; tone?: "good" | "warn" | "bad" | "info" | "muted"; sort?: string | number };
+/** Cell text for tables; `tone` drives the status badge colour; `subtext` shows converted currency equivalent. */
+export type Cell = { text: string; subtext?: string; tone?: "good" | "warn" | "bad" | "info" | "muted"; sort?: string | number };
 
 export type Column = { key: string; label: string; align?: "right"; cell: (r: Rec, s: Store) => Cell };
 
@@ -59,7 +59,18 @@ export type ModuleConfig = {
 
 // ---------- helpers ----------
 const t = (text: unknown): Cell => ({ text: text == null || text === "" ? "—" : String(text) });
-const money = (v: unknown, cur = "PKR"): Cell => ({ text: fmtMoney(v, cur), sort: num(v) });
+const money = (v: unknown, cur = "PKR", pkrVal?: unknown): Cell => {
+  const primary = fmtMoney(v, cur);
+  const pkrNum = num(pkrVal);
+  if (cur && cur !== "PKR" && pkrNum > 0) {
+    return {
+      text: primary,
+      subtext: `≈ PKR ${fmtNum(pkrNum)}`,
+      sort: num(v),
+    };
+  }
+  return { text: primary, sort: num(v) };
+};
 const date = (v?: string): Cell => ({ text: fmtDate(v) || "—", sort: v ?? "" });
 
 export function statusTone(status: string): Cell["tone"] {
@@ -315,7 +326,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "serial", label: "Quote no.", cell: (r) => t(r.serial) },
       { key: "date", label: "Date", cell: (r) => date(r.date) },
       { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
-      { key: "total", label: "Total price", align: "right", cell: (r) => money(r.amount, r.currency) },
+      { key: "total", label: "Total price", align: "right", cell: (r) => money(r.amount, r.currency, r.amountPKR) },
       { key: "margin", label: "Margin", align: "right", cell: (r) => money(r.margin, r.currency) },
       { key: "marginPct", label: "Margin %", align: "right", cell: (r) => ({ text: fmtPct(r.marginPct), sort: num(r.marginPct) }) },
       { key: "followUp", label: "Follow-up", cell: (r) => badge(r.followUpStatus) },
@@ -355,7 +366,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "serial", label: "SO no.", cell: (r) => t(r.serial) },
       { key: "date", label: "Date", cell: (r) => date(r.date) },
       { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
-      { key: "total", label: "Total", align: "right", cell: (r) => money(r.amount, r.currency) },
+      { key: "total", label: "Total", align: "right", cell: (r) => money(r.amount, r.currency, r.amountPKR) },
       { key: "marginPct", label: "Margin %", align: "right", cell: (r) => ({ text: fmtPct(r.marginPct), sort: num(r.marginPct) }) },
       { key: "po", label: "PO to supplier", cell: (r, s) => { const i = soInfo(r, s); return i.poIssued ? { text: i.suppliers.join(", ") || "Issued", tone: "good" } : { text: "Not issued", tone: "muted" }; } },
       { key: "payment", label: "Payment", cell: (r, s) => badge(soInfo(r, s).payment) },
@@ -398,7 +409,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "date", label: "Date", cell: (r) => date(r.date) },
       { key: "supplier", label: "Supplier", cell: (r, s) => t(supplierName(r, s)) },
       { key: "so", label: "Sales order", cell: (r, s) => t(s.byId.salesOrders.get(r.salesOrderId)?.serial) },
-      { key: "total", label: "Total cost", align: "right", cell: (r) => money(r.amount, r.currency) },
+      { key: "total", label: "Total cost", align: "right", cell: (r) => money(r.amount, r.currency, r.amountPKR) },
       { key: "terms", label: "Terms", cell: (r) => t(r.paymentTerms) },
       { key: "vendorPayment", label: "Vendor payment", cell: (r, s) => badge(poInfo(r, s).payment) },
       { key: "late", label: "Late", align: "right", cell: (r, s) => { const l = poInfo(r, s).late; return l && l.days ? { text: `${l.days}d${l.overdue ? " overdue" : ""}`, tone: "bad", sort: l.days } : { text: "—", sort: 0 }; } },
