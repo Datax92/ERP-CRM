@@ -1,6 +1,6 @@
 # Trade ERP
 
-Custom ERP for a trading / supply business, built from the client's Excel (`Book1 ERP.xlsx`) and the
+Custom ERP for a trading / supply business, built from the client's Excel (`Book1 ERP.xlsx`) and the,
 requirements conversation. Next.js (static export) + Firebase (Auth, Firestore, Storage). One user..
 
 ## Workflow
