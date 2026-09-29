@@ -75,4 +75,39 @@ describe("Daily Schedule & Diary module", () => {
     const lowCell = priorityCol!.cell({ priority: "Low" } as any, {} as any);
     expect(lowCell.tone).toBe("muted");
   });
+
+  it("supports Daily, Monthly, and Yearly / Long-term task horizons with projects and milestones", () => {
+    const fieldNames = MODULES.schedule.fields.map((f) => f.name);
+    expect(fieldNames).toContain("horizon");
+    expect(fieldNames).toContain("project");
+    expect(fieldNames).toContain("isMilestone");
+    expect(fieldNames).toContain("targetMonth");
+    expect(fieldNames).toContain("targetYear");
+
+    const defs = MODULES.schedule.defaults({} as any);
+    expect(defs.horizon).toBe("Daily");
+    expect(defs.project).toBe("A&SONS WORK");
+    expect(defs.isMilestone).toBe(false);
+
+    // Verify horizon column visual tones
+    const horizonCol = MODULES.schedule.columns.find((c) => c.key === "horizon");
+    expect(horizonCol).toBeDefined();
+
+    const yearlyCell = horizonCol!.cell({ horizon: "Yearly / Long-term" } as any, {} as any);
+    expect(yearlyCell.text).toBe("Yearly / Long-term");
+    expect(yearlyCell.tone).toBe("info");
+
+    const monthlyCell = horizonCol!.cell({ horizon: "Monthly" } as any, {} as any);
+    expect(monthlyCell.text).toBe("Monthly");
+    expect(monthlyCell.tone).toBe("warn");
+
+    const dailyCell = horizonCol!.cell({ horizon: "Daily" } as any, {} as any);
+    expect(dailyCell.text).toBe("Daily");
+    expect(dailyCell.tone).toBe("muted");
+
+    // Verify milestone column
+    const milestoneCol = MODULES.schedule.columns.find((c) => c.key === "isMilestone");
+    expect(milestoneCol).toBeDefined();
+    expect(milestoneCol!.cell({ isMilestone: true } as any, {} as any).tone).toBe("good");
+  });
 });

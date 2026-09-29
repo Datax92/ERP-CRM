@@ -73,6 +73,32 @@ export const DEFAULT_SETTINGS: Settings = {
     "General Note",
   ],
   taskPriorities: ["Urgent", "High", "Medium", "Low"],
+  taskProjects: [
+    "A&SONS WORK",
+    "Company Operations",
+    "Procurement & Supply",
+    "Business Development",
+  ],
+  taskHorizons: ["Daily", "Monthly", "Yearly / Long-term"],
+  extraCostCategories: [
+    "Freight & Ocean/Air Shipping",
+    "Customs & Regulatory Duties",
+    "Clearing & Forwarding (C&F)",
+    "Port Demurrage & Terminal Charges",
+    "Marine / Cargo Insurance",
+    "Bank LC & Remittance Charges",
+    "Local Transport & Cartage",
+    "Inspection & Quality Testing",
+    "Warehousing & Handling",
+    "Other Direct Expense",
+  ],
+  commissionRoles: [
+    "Buying Agent",
+    "Sales Agent",
+    "Deal Broker",
+    "Trade Intermediary",
+    "Local Partner",
+  ],
 };
 
 export const LIST_LABELS: Record<ListKey, string> = {
@@ -95,6 +121,10 @@ export const LIST_LABELS: Record<ListKey, string> = {
   financeCategories: "Account entry categories",
   taskCategories: "Schedule & task categories",
   taskPriorities: "Task priority levels",
+  taskProjects: "Task projects",
+  taskHorizons: "Task time horizons",
+  extraCostCategories: "Cost sheet expense categories",
+  commissionRoles: "Cost sheet commission roles",
 };
 
 export function mergeSettings(stored: Partial<Settings> | undefined): Settings {

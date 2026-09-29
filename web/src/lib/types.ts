@@ -18,7 +18,8 @@ export type CollectionName =
   | "investors"
   | "expenses"
   | "financeEntries"
-  | "schedule";
+  | "schedule"
+  | "costSheets";
 
 export const COLLECTIONS: CollectionName[] = [
   "clients",
@@ -36,6 +37,7 @@ export const COLLECTIONS: CollectionName[] = [
   "expenses",
   "financeEntries",
   "schedule",
+  "costSheets",
 ];
 
 export type Attachment = {
@@ -63,6 +65,38 @@ export type LineItem = {
   unitPrice: number;
 };
 
+export type ExtraCostItem = {
+  category: string;
+  description: string;
+  amount: number;
+  currency: string;
+  exchangeRate: number;
+  amountPKR: number;
+  paidTo?: string;
+};
+
+export type CommissionItem = {
+  name: string;
+  role: string;
+  type: "percent_sale" | "percent_purchase" | "per_unit" | "fixed";
+  rate: number;
+  amountPKR: number;
+  notes?: string;
+};
+
+export type TaxConfig = {
+  whtSaleRate: number;
+  whtImportRate: number;
+  gstOutputRate: number;
+  gstInputRate: number;
+  incomeTaxRate: number;
+  whtSaleAmount: number;
+  whtImportAmount: number;
+  gstNetPayable: number;
+  incomeTaxAmount: number;
+  totalTaxPayable: number;
+};
+
 export type Settings = {
   regions: string[];
   countries: string[];
@@ -83,6 +117,10 @@ export type Settings = {
   financeCategories: string[];
   taskCategories: string[];
   taskPriorities: string[];
+  taskProjects: string[];
+  taskHorizons: string[];
+  extraCostCategories: string[];
+  commissionRoles: string[];
   inactiveDays: number;
   companyName: string;
   imgbbApiKey: string;

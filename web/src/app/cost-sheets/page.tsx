@@ -1,15 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { BookOpen, CalendarCheck, LayoutList, Plus } from "lucide-react";
+import { Calculator, LayoutList } from "lucide-react";
 import { ModulePage } from "@/components/ModulePage";
 import { PageHeader } from "@/components/ui";
-import { SchedulePlanner } from "./SchedulePlanner";
+import { CostSheetWorkspace } from "./CostSheetWorkspace";
 
-export default function SchedulePage() {
-  const router = useRouter();
-  const [viewMode, setViewMode] = useState<"planner" | "table">("planner");
+export default function CostSheetsPage() {
+  const [viewMode, setViewMode] = useState<"workspace" | "table">("workspace");
 
   return (
     <div>
@@ -18,15 +16,15 @@ export default function SchedulePage() {
         <div className="inline-flex rounded-xl border border-line bg-surface p-1 shadow-[var(--shadow)]">
           <button
             type="button"
-            onClick={() => setViewMode("planner")}
+            onClick={() => setViewMode("workspace")}
             className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-semibold transition ${
-              viewMode === "planner"
+              viewMode === "workspace"
                 ? "bg-accent text-accent-ink shadow-xs"
                 : "text-muted hover:text-ink"
             }`}
           >
-            <CalendarCheck size={14} />
-            <span>Tasks Planner (Daily, Monthly & Long-Term)</span>
+            <Calculator size={14} />
+            <span>Deal Costing Engine & Workspace</span>
           </button>
           <button
             type="button"
@@ -38,23 +36,23 @@ export default function SchedulePage() {
             }`}
           >
             <LayoutList size={14} />
-            <span>All Tasks & Filter Table</span>
+            <span>All Cost Sheets & Records Table</span>
           </button>
         </div>
       </div>
 
-      {viewMode === "planner" ? (
+      {viewMode === "workspace" ? (
         <div>
           <PageHeader
-            title="Tasks & Schedule Planner"
-            subtitle="Manage daily action items, monthly operational targets, long-term strategic milestones, and your business diary."
+            title="Trading Cost Sheets (Deal Costing)"
+            subtitle="Full commercial deal profitability: Sales, Purchases, Landed Expenses (Freight, Customs, C&F, Demurrage, Insurance, Cartage), Broker Commissions, Taxes (WHT & GST), and Net Margin analysis."
           />
-          <SchedulePlanner />
+          <CostSheetWorkspace />
         </div>
       ) : (
         <ModulePage
-          col="schedule"
-          subtitle="Complete list of all daily, monthly, and yearly long-term tasks with filtering, projects, and export."
+          col="costSheets"
+          subtitle="Complete list of all trade cost sheets, deal margins, supplier costings, and profit summaries."
         />
       )}
     </div>

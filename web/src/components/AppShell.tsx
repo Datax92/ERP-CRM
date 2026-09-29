@@ -26,6 +26,7 @@ import {
   PiggyBank,
   Coins,
   CalendarCheck,
+  Calculator,
 } from "lucide-react";
 import { fb } from "@/lib/firebase";
 import { useStore } from "./DataProvider";
@@ -36,7 +37,7 @@ export const NAV: { group: string; items: { href: string; label: string; icon: t
     group: "",
     items: [
       { href: "/", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/schedule", label: "Daily Schedule & Diary", icon: CalendarCheck },
+      { href: "/schedule", label: "Tasks & Planner", icon: CalendarCheck },
     ],
   },
   {
@@ -51,6 +52,7 @@ export const NAV: { group: string; items: { href: string; label: string; icon: t
     group: "Sales",
     items: [
       { href: "/rfqs", label: "RFQs", icon: ClipboardList },
+      { href: "/cost-sheets", label: "Cost Sheets", icon: Calculator },
       { href: "/quotations", label: "Quotations", icon: FileText },
       { href: "/sales-orders", label: "Sales Orders", icon: ShoppingCart },
     ],

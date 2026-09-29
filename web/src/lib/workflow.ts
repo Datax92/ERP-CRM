@@ -46,6 +46,69 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
           return q;
         },
       });
+      const existingCostSheet = s.costSheets?.find((cs) => cs.rfqId === r.id);
+      out.push({
+        label: "Prepare cost sheet",
+        target: "costSheets",
+        disabled: existingCostSheet ? `Cost sheet exists as ${existingCostSheet.serial}` : undefined,
+        run: async () => {
+          const cs = await create("costSheets", {
+            id: "",
+            ...MODULES.costSheets.defaults(s),
+            title: `Costing · ${r.serial || "RFQ"}${r.title ? ` · ${r.title}` : ""}`,
+            clientId: r.clientId,
+            rfqId: r.id,
+            currency: "PKR",
+            exchangeRate: 1,
+            items: copyItems(r.items, false),
+            ...carry(r),
+          });
+          return cs;
+        },
+      });
+      break;
+    }
+    case "costSheets": {
+      const existingQuote = s.quotations.find((q) => q.costSheetId === r.id || (r.rfqId && q.rfqId === r.rfqId));
+      out.push({
+        label: "Create quotation from cost sheet",
+        target: "quotations",
+        disabled: existingQuote ? `Already quoted as ${existingQuote.serial}` : undefined,
+        run: async () => {
+          const q = await create("quotations", {
+            id: "",
+            ...MODULES.quotations.defaults(s),
+            title: r.title,
+            clientId: r.clientId,
+            rfqId: r.rfqId,
+            costSheetId: r.id,
+            currency: r.currency,
+            exchangeRate: r.exchangeRate,
+            items: copyItems(r.items, true),
+            ...carry(r),
+          });
+          await patchRecord("costSheets", r.id, { status: "Costed", quotationId: q.id });
+          return q;
+        },
+      });
+      out.push({
+        label: "Convert to sales order",
+        target: "salesOrders",
+        run: async () => {
+          const so = await create("salesOrders", {
+            id: "",
+            ...MODULES.salesOrders.defaults(s),
+            clientId: r.clientId,
+            costSheetId: r.id,
+            currency: r.currency,
+            exchangeRate: r.exchangeRate,
+            items: copyItems(r.items, true),
+            ...carry(r),
+          });
+          await patchRecord("costSheets", r.id, { status: "Converted", salesOrderId: so.id });
+          return so;
+        },
+      });
       break;
     }
     case "quotations": {
@@ -71,6 +134,28 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
           });
           await patchRecord("quotations", r.id, { status: "Won" });
           return so;
+        },
+      });
+      out.push({
+        label: "Generate / View cost sheet",
+        target: "costSheets",
+        run: async () => {
+          const existingCs = s.costSheets?.find((cs) => cs.quotationId === r.id || cs.id === r.costSheetId);
+          if (existingCs) return existingCs;
+          const cs = await create("costSheets", {
+            id: "",
+            ...MODULES.costSheets.defaults(s),
+            title: `Costing · ${r.serial}`,
+            clientId: r.clientId,
+            quotationId: r.id,
+            rfqId: r.rfqId,
+            currency: r.currency,
+            exchangeRate: r.exchangeRate,
+            items: copyItems(r.items, true),
+            ...carry(r),
+          });
+          await patchRecord("quotations", r.id, { costSheetId: cs.id });
+          return cs;
         },
       });
       break;
@@ -245,6 +330,7 @@ export function linkedRecords(col: CollectionName, r: Rec, s: Store): { col: Col
   switch (col) {
     case "clients":
       add("rfqs", (x) => x.clientId === r.id);
+      add("costSheets", (x) => x.clientId === r.id);
       add("quotations", (x) => x.clientId === r.id);
       add("salesOrders", (x) => x.clientId === r.id);
       add("proformaInvoices", (x) => x.clientId === r.id);
@@ -253,19 +339,32 @@ export function linkedRecords(col: CollectionName, r: Rec, s: Store): { col: Col
       add("marketing", (x) => x.clientId === r.id);
       break;
     case "suppliers":
+      add("costSheets", (x) => x.supplierId === r.id);
       add("purchaseOrders", (x) => x.supplierId === r.id);
       add("proformaInvoices", (x) => x.supplierId === r.id);
       add("payments", (x) => x.supplierId === r.id);
       break;
     case "rfqs":
+      add("costSheets", (x) => x.rfqId === r.id);
       add("quotations", (x) => x.rfqId === r.id);
+      break;
+    case "costSheets":
+      up("rfqs", r.rfqId);
+      up("quotations", r.quotationId);
+      up("salesOrders", r.salesOrderId);
+      add("quotations", (x) => x.costSheetId === r.id);
+      add("salesOrders", (x) => x.costSheetId === r.id);
       break;
     case "quotations":
       up("rfqs", r.rfqId);
+      up("costSheets", r.costSheetId);
+      add("costSheets", (x) => x.quotationId === r.id);
       add("salesOrders", (x) => x.quotationId === r.id);
       break;
     case "salesOrders":
       up("quotations", r.quotationId);
+      up("costSheets", r.costSheetId);
+      add("costSheets", (x) => x.salesOrderId === r.id);
       add("purchaseOrders", (x) => x.salesOrderId === r.id);
       add("proformaInvoices", (x) => x.salesOrderId === r.id);
       add("deliveries", (x) => x.salesOrderId === r.id);

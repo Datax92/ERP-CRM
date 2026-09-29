@@ -45,9 +45,15 @@ export const STAGES: Partial<Record<CollectionName, StageDef>> = {
     lost: ["Returned", "Cancelled"],
   },
   schedule: {
-    options: ["Pending", "In progress", "Completed", "Postponed", "Cancelled"],
-    open: ["Pending", "In progress"],
+    options: ["Pending", "Open", "In progress", "Completed", "Postponed", "Cancelled"],
+    open: ["Pending", "Open", "In progress"],
     won: ["Completed"],
+    lost: ["Cancelled"],
+  },
+  costSheets: {
+    options: ["Draft", "Costed", "Approved", "Converted", "Cancelled"],
+    open: ["Draft", "Costed", "Approved"],
+    won: ["Converted"],
     lost: ["Cancelled"],
   },
 };

@@ -48,8 +48,12 @@ export default function Dashboard() {
   const docs = s.companyDocs.filter((d) => ["Expired", "Expiring soon"].includes(companyDocStatus(d)));
   const inactive = s.clients.filter((c) => !clientInfo(c, s).active).length;
 
-  const todayTasks = (s.schedule ?? []).filter((tItem) => tItem.date === t && !tItem.isDailyLog);
+  const currentMonthStr = t.slice(0, 7);
+  const currentYearStr = t.slice(0, 4);
+  const allSched = s.schedule ?? [];
+  const todayTasks = allSched.filter((tItem) => !tItem.isDailyLog && (!tItem.horizon || tItem.horizon === "Daily") && tItem.date === t);
   const pendingTodayTasks = todayTasks.filter((tItem) => tItem.status !== "Completed");
+  const activeLongTermTasks = allSched.filter((tItem) => !tItem.isDailyLog && (tItem.horizon === "Monthly" || tItem.horizon === "Yearly / Long-term" || tItem.isMilestone) && tItem.status !== "Completed");
 
   const monthly = monthlyMeasures(
     s.salesOrders.filter((o) => o.status !== "Cancelled"),
@@ -152,12 +156,12 @@ export default function Dashboard() {
         </ChartCard>
 
         <ChartCard
-          title="Today's Schedule & Tasks"
-          subtitle={`${pendingTodayTasks.length} pending · ${todayTasks.length - pendingTodayTasks.length} completed`}
+          title="Schedule & Tasks Planner"
+          subtitle={`${pendingTodayTasks.length} daily pending · ${activeLongTermTasks.length} monthly/yearly active`}
           className="lg:col-span-1"
         >
           <div className="mb-2 flex items-center justify-between text-xs">
-            <span className="font-semibold text-ink">Daily Agenda</span>
+            <span className="font-semibold text-ink">Action Items & Agenda</span>
             <Link href="/schedule" className="font-medium text-accent hover:underline">
               Open Planner →
             </Link>

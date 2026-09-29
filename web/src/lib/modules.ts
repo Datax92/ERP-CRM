@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { fmtDate, fmtMoney, fmtNum, fmtPct, num, today } from "./calc";
+import { computeCostSheet, emptyItem, fmtDate, fmtMoney, fmtNum, fmtPct, num, today } from "./calc";
 import { clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type Store } from "./derive";
 import { STAGES } from "./stages";
 import type { CollectionName, ItemsMode, ListKey, Rec } from "./types";
@@ -108,6 +107,8 @@ export function labelOf(col: CollectionName, r: Rec | undefined, s: Store): stri
       return r.name ?? "";
     case "schedule":
       return [r.date, r.title].filter(Boolean).join(" · ") || r.serial || "Task";
+    case "costSheets":
+      return [r.serial, r.title || clientName(r, s)].filter(Boolean).join(" · ") || r.serial || "Cost Sheet";
     default:
       return r.serial ?? r.title ?? r.description ?? r.id;
   }
@@ -692,26 +693,38 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
 
   schedule: {
     col: "schedule",
-    title: "Daily Schedule & Diary",
-    singular: "Task / Daily log",
+    title: "Tasks & Schedule Planner",
+    singular: "Task",
     href: "/schedule",
     prefix: "TSK",
-    searchKeys: ["title", "notes", "diaryNotes", "category", "assignedTo", "priority"],
+    searchKeys: ["title", "project", "serial", "notes", "diaryNotes", "category", "assignedTo", "priority", "horizon"],
     defaults: () => ({
+      horizon: "Daily",
+      project: "A&SONS WORK",
       date: today(),
+      targetMonth: today().slice(0, 7),
+      targetYear: today().slice(0, 4),
       time: "09:00",
       category: "Client Follow-up",
       priority: "Medium",
       status: "Pending",
       title: "",
+      isMilestone: false,
+      isGroup: false,
       assignedTo: "",
       notes: "",
       diaryNotes: "",
     }),
     fields: [
-      { name: "date", label: "Date", type: "date", required: true },
-      { name: "time", label: "Time / Schedule", type: "text" },
-      { name: "title", label: "Task / Entry title", type: "text", required: true, wide: true },
+      { name: "title", label: "Subject / Task title", type: "text", required: true, wide: true },
+      { name: "horizon", label: "Time Horizon / Scope", type: "select", options: ["Daily", "Monthly", "Yearly / Long-term"], required: true },
+      { name: "project", label: "Project", type: "text" },
+      { name: "isMilestone", label: "Is Milestone (⭐ Major Long-Term Goal)", type: "checkbox" },
+      { name: "isGroup", label: "Is Group / Bucket Task", type: "checkbox" },
+      { name: "date", label: "Date / Due Date", type: "date", required: true },
+      { name: "targetMonth", label: "Target Month (YYYY-MM)", type: "text", showIf: (d) => d.horizon === "Monthly" },
+      { name: "targetYear", label: "Target Year (YYYY)", type: "text", showIf: (d) => d.horizon === "Yearly / Long-term" },
+      { name: "time", label: "Time / Scheduled Time", type: "text" },
       { name: "category", label: "Category", type: "select", list: "taskCategories", required: true },
       { name: "priority", label: "Priority", type: "select", list: "taskPriorities", required: true },
       statusField("schedule"),
@@ -724,11 +737,19 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { name: "diaryNotes", label: "Daily diary & notes for the day", type: "textarea", wide: true },
     ],
     columns: [
-      { key: "serial", label: "Task no.", cell: (r) => t(r.serial) },
-      { key: "date", label: "Date", cell: (r) => date(r.date) },
-      { key: "time", label: "Time", cell: (r) => t(r.time) },
-      { key: "title", label: "Title / Task", cell: (r) => t(r.title) },
-      { key: "category", label: "Category", cell: (r) => t(r.category) },
+      { key: "serial", label: "ID", cell: (r) => t(r.serial) },
+      { key: "title", label: "Subject", cell: (r) => t(r.title) },
+      { key: "status", label: "Status", cell: (r) => badge(r.status) },
+      { key: "project", label: "Project", cell: (r) => t(r.project || "A&SONS WORK") },
+      {
+        key: "horizon",
+        label: "Horizon",
+        cell: (r) => {
+          const h = r.horizon || (r.targetYear ? "Yearly / Long-term" : r.targetMonth ? "Monthly" : "Daily");
+          const tone = h === "Yearly / Long-term" ? "info" : h === "Monthly" ? "warn" : "muted";
+          return { text: h, tone };
+        },
+      },
       {
         key: "priority",
         label: "Priority",
@@ -739,15 +760,52 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
         },
       },
       {
+        key: "isMilestone",
+        label: "Is Milestone",
+        cell: (r) => ({
+          text: r.isMilestone ? "⭐ Milestone" : "—",
+          tone: r.isMilestone ? "good" : "muted",
+        }),
+      },
+      { key: "isGroup", label: "Is Group", cell: (r) => ({ text: r.isGroup ? "Yes" : "—" }) },
+      {
+        key: "date",
+        label: "Target / Date",
+        cell: (r) => {
+          if (r.horizon === "Monthly" && r.targetMonth) return { text: r.targetMonth };
+          if (r.horizon === "Yearly / Long-term" && r.targetYear) return { text: String(r.targetYear) };
+          return date(r.date);
+        },
+      },
+      { key: "time", label: "Time", cell: (r) => t(r.time) },
+      { key: "category", label: "Category", cell: (r) => t(r.category) },
+      {
         key: "party",
         label: "Client / Supplier",
         cell: (r, s) => t(clientName(r, s) || supplierName(r, s)),
       },
       { key: "assignedTo", label: "Assigned to", cell: (r) => t(r.assignedTo) },
-      { key: "status", label: "Status", cell: (r) => badge(r.status) },
     ],
     filters: [
       statusFilter("schedule"),
+      {
+        key: "horizon",
+        label: "Horizon",
+        options: () => ["Daily", "Monthly", "Yearly / Long-term"],
+        get: (r) => r.horizon || (r.targetYear ? "Yearly / Long-term" : r.targetMonth ? "Monthly" : "Daily"),
+      },
+      {
+        key: "project",
+        label: "Project",
+        options: (s) => [...new Set([ ...(s.settings.taskProjects ?? []), ...((s.schedule ?? []).map((x) => x.project).filter(Boolean)) ])].sort(),
+        get: (r) => r.project ?? "",
+      },
+      {
+        key: "isMilestone",
+        label: "Milestone",
+        options: () => ["Milestones Only", "Standard"],
+        get: (r) => (r.isMilestone ? "Milestones Only" : "Standard"),
+      },
       {
         key: "priority",
         label: "Priority",
@@ -761,6 +819,131 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
         get: (r) => r.category ?? "",
       },
       clientFilter,
+    ],
+  },
+
+  costSheets: {
+    col: "costSheets",
+    title: "Cost Sheets (Deal Costing)",
+    singular: "Cost Sheet",
+    href: "/cost-sheets",
+    prefix: "CST",
+    itemsMode: () => "sale",
+    amountField: "totalSale",
+    compute: (d) => ({ isCostSheet: true, ...computeCostSheet(d) }),
+    searchKeys: ["serial", "title", "notes", "project"],
+    defaults: () => ({
+      date: today(),
+      currency: "PKR",
+      exchangeRate: 1,
+      purchaseCurrency: "PKR",
+      purchaseExchangeRate: 1,
+      title: "",
+      project: "A&SONS WORK",
+      status: "Draft",
+      taxMode: "wht",
+      whtSaleRate: 4,
+      whtImportRate: 0,
+      gstOutputRate: 18,
+      gstInputRate: 18,
+      incomeTaxRate: 29,
+      commissionType: "percent_sale",
+      commissionRate: 0,
+      items: [emptyItem()],
+      extraCosts: [],
+      commissions: [],
+      notes: "",
+    }),
+    fields: [
+      { name: "title", label: "Deal title / Description", type: "text", required: true, wide: true },
+      { name: "date", label: "Date", type: "date", required: true },
+      statusField("costSheets"),
+      { name: "clientId", label: "Client", type: "ref", ref: "clients" },
+      { name: "supplierId", label: "Primary Supplier", type: "ref", ref: "suppliers" },
+      { name: "rfqId", label: "Linked RFQ", type: "ref", ref: "rfqs" },
+      { name: "quotationId", label: "Linked Quotation", type: "ref", ref: "quotations" },
+      { name: "salesOrderId", label: "Linked Sales Order", type: "ref", ref: "salesOrders" },
+      { name: "project", label: "Project", type: "text" },
+      { name: "currency", label: "Sale Currency & Rate", type: "currency" },
+      { name: "purchaseCurrency", label: "Purchase Currency", type: "select", list: "currencies" },
+      { name: "purchaseExchangeRate", label: "Purchase Rate to PKR", type: "number" },
+      { name: "items", label: "Line Items (Sale & Purchase)", type: "items", wide: true },
+      { name: "freightAmount", label: "Ocean / Air Freight (PKR)", type: "number" },
+      { name: "customsDutyAmount", label: "Customs & Tariffs (PKR)", type: "number" },
+      { name: "clearingAmount", label: "C&F Agent Fee (PKR)", type: "number" },
+      { name: "portDemurrageAmount", label: "Port Demurrage / Charges (PKR)", type: "number" },
+      { name: "insuranceAmount", label: "Marine Insurance (PKR)", type: "number" },
+      { name: "bankChargesAmount", label: "Bank LC / TT Fees (PKR)", type: "number" },
+      { name: "cartageAmount", label: "Local Cartage & Delivery (PKR)", type: "number" },
+      { name: "inspectionAmount", label: "Inspection / Lab (PKR)", type: "number" },
+      { name: "otherExpensesAmount", label: "Other Direct Expenses (PKR)", type: "number" },
+      { name: "commissionRecipient", label: "Commission Agent / Broker", type: "text" },
+      { name: "commissionType", label: "Commission Type", type: "select", options: ["percent_sale", "percent_purchase", "per_unit", "fixed"] },
+      { name: "commissionRate", label: "Commission Rate (% or PKR)", type: "number" },
+      { name: "taxMode", label: "Tax Regime", type: "select", options: ["wht", "corporate", "both", "none"] },
+      { name: "whtSaleRate", label: "WHT Withheld by Client %", type: "number" },
+      { name: "whtImportRate", label: "WHT at Import %", type: "number" },
+      { name: "gstOutputRate", label: "Sales Tax / GST Output %", type: "number" },
+      { name: "gstInputRate", label: "Sales Tax / GST Input %", type: "number" },
+      { name: "incomeTaxRate", label: "Corporate Tax Rate on Profit %", type: "number" },
+      notes,
+    ],
+    columns: [
+      { key: "serial", label: "No.", cell: (r) => t(r.serial) },
+      { key: "title", label: "Deal Title", cell: (r) => t(r.title) },
+      { key: "party", label: "Client / Supplier", cell: (r, s) => t(clientName(r, s) || supplierName(r, s)) },
+      { key: "status", label: "Status", cell: (r) => badge(r.status) },
+      { key: "sale", label: "Sale Value", align: "right", cell: (r) => money(r.totalSale || r.amount, r.currency, r.totalSalePKR || r.amountPKR) },
+      { key: "cost", label: "Purchase Cost", align: "right", cell: (r) => money(r.totalPurchaseCost, r.purchaseCurrency || r.currency, r.totalPurchaseCostPKR) },
+      { key: "expenses", label: "Extra Costs", align: "right", cell: (r) => money(r.totalExtraCostsPKR, "PKR") },
+      { key: "commission", label: "Commission", align: "right", cell: (r) => money(r.totalCommissionPKR, "PKR") },
+      { key: "tax", label: "Tax to Pay", align: "right", cell: (r) => money(r.totalTaxPayablePKR, "PKR") },
+      {
+        key: "grossMargin",
+        label: "Gross %",
+        align: "right",
+        cell: (r) => {
+          const gm = num(r.grossMarginPct);
+          const tone = gm >= 20 ? "good" : gm >= 10 ? "info" : gm > 0 ? "warn" : "bad";
+          return { text: fmtPct(gm), tone };
+        },
+      },
+      {
+        key: "netProfit",
+        label: "Net Profit",
+        align: "right",
+        cell: (r) => {
+          const np = num(r.netProfitPKR ?? r.marginPKR);
+          const tone = np > 0 ? "good" : np === 0 ? "muted" : "bad";
+          return { text: fmtMoney(np, "PKR"), tone };
+        },
+      },
+      {
+        key: "netMargin",
+        label: "Net %",
+        align: "right",
+        cell: (r) => {
+          const nm = num(r.netMarginPct);
+          const tone = nm >= 12 ? "good" : nm >= 5 ? "info" : nm > 0 ? "warn" : "bad";
+          return { text: fmtPct(nm), tone };
+        },
+      },
+    ],
+    filters: [
+      statusFilter("costSheets"),
+      clientFilter,
+      {
+        key: "project",
+        label: "Project",
+        options: (s) => [...new Set([ ...(s.settings.taskProjects ?? []), ...((s.costSheets ?? []).map((x) => x.project).filter(Boolean)) ])].sort(),
+        get: (r) => r.project ?? "",
+      },
+      {
+        key: "currency",
+        label: "Currency",
+        options: (s) => s.settings.currencies,
+        get: (r) => r.currency ?? "PKR",
+      },
     ],
   },
 };
