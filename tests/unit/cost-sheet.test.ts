@@ -205,10 +205,10 @@ describe("Cost Sheet Calculation Engine (Deal Costing)", () => {
     };
 
     const rfqActions = conversionsFor("rfqs", rfq, emptyStore);
-    const prepareCostSheet = rfqActions.find((a) => a.target === "costSheets");
-    expect(prepareCostSheet).toBeDefined();
-    expect(prepareCostSheet?.label).toBe("Prepare cost sheet");
-    expect(prepareCostSheet?.disabled).toBeUndefined();
+    const convertToQuotation = rfqActions.find((a) => a.target === "quotations");
+    expect(convertToQuotation).toBeDefined();
+    expect(convertToQuotation?.label).toBe("Convert to quotation");
+    expect(convertToQuotation?.disabled).toBeUndefined();
 
     // Cost Sheet conversion to Quotation
     const cs: Rec = {

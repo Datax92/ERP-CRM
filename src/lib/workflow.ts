@@ -46,26 +46,6 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
           return q;
         },
       });
-      const existingCostSheet = s.costSheets?.find((cs) => cs.rfqId === r.id);
-      out.push({
-        label: "Prepare cost sheet",
-        target: "costSheets",
-        disabled: existingCostSheet ? `Cost sheet exists as ${existingCostSheet.serial}` : undefined,
-        run: async () => {
-          const cs = await create("costSheets", {
-            id: "",
-            ...MODULES.costSheets.defaults(s),
-            title: `Costing · ${r.serial || "RFQ"}${r.title ? ` · ${r.title}` : ""}`,
-            clientId: r.clientId,
-            rfqId: r.id,
-            currency: "PKR",
-            exchangeRate: 1,
-            items: copyItems(r.items, false),
-            ...carry(r),
-          });
-          return cs;
-        },
-      });
       break;
     }
     case "costSheets": {
@@ -134,28 +114,6 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
           });
           await patchRecord("quotations", r.id, { status: "Won" });
           return so;
-        },
-      });
-      out.push({
-        label: "Generate / View cost sheet",
-        target: "costSheets",
-        run: async () => {
-          const existingCs = s.costSheets?.find((cs) => cs.quotationId === r.id || cs.id === r.costSheetId);
-          if (existingCs) return existingCs;
-          const cs = await create("costSheets", {
-            id: "",
-            ...MODULES.costSheets.defaults(s),
-            title: `Costing · ${r.serial}`,
-            clientId: r.clientId,
-            quotationId: r.id,
-            rfqId: r.rfqId,
-            currency: r.currency,
-            exchangeRate: r.exchangeRate,
-            items: copyItems(r.items, true),
-            ...carry(r),
-          });
-          await patchRecord("quotations", r.id, { costSheetId: cs.id });
-          return cs;
         },
       });
       break;

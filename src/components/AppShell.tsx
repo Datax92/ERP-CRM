@@ -52,7 +52,6 @@ export const NAV: { group: string; items: { href: string; label: string; icon: t
     group: "Sales",
     items: [
       { href: "/rfqs", label: "RFQs", icon: ClipboardList },
-      { href: "/cost-sheets", label: "Cost Sheets", icon: Calculator },
       { href: "/quotations", label: "Quotations", icon: FileText },
       { href: "/sales-orders", label: "Sales Orders", icon: ShoppingCart },
     ],

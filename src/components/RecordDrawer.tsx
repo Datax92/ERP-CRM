@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, Trash2 } from "lucide-react";
+import { ArrowRight, Calculator, FileText, Trash2 } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { Attachments, CurrencyField, ItemsEditor, ListSelect, MultiSelect, RefSelect } from "./fields";
 import { Badge, Drawer, Section } from "./ui";
@@ -24,6 +24,7 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [activeDrawerTab, setActiveDrawerTab] = useState<"details" | "costSheet">("details");
   const isNew = !existing;
 
   if (id !== "new" && !existing) {
@@ -101,7 +102,58 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
       {existing && <Summary col={col} r={existing} s={s} />}
       {existing && <Workflow col={col} r={existing} s={s} dirty={dirty} onOpen={onOpen} />}
 
-      <form id="record-form" onSubmit={save}>
+      {(col === "quotations" || col === "salesOrders" || col === "costSheets") && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
+          <div className="inline-flex rounded-lg border border-line bg-surface p-1">
+            <button
+              type="button"
+              onClick={() => setActiveDrawerTab("details")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                activeDrawerTab === "details"
+                  ? "bg-accent text-accent-ink shadow-xs"
+                  : "text-muted hover:text-ink"
+              }`}
+            >
+              <FileText size={13} />
+              <span>Quotation Details & Items</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveDrawerTab("costSheet")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                activeDrawerTab === "costSheet"
+                  ? "bg-accent text-accent-ink shadow-xs"
+                  : "text-muted hover:text-ink"
+              }`}
+            >
+              <Calculator size={13} />
+              <span>Deal Cost Sheet & Margin</span>
+              {data.netMarginPct !== undefined && (
+                <span className="rounded-full bg-black/10 dark:bg-white/10 px-1.5 py-0.5 text-[10px]">
+                  {fmtPct(data.netMarginPct)}
+                </span>
+              )}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            className="text-xs font-medium text-accent hover:underline flex items-center gap-1"
+            onClick={() => setActiveDrawerTab(activeDrawerTab === "details" ? "costSheet" : "details")}
+          >
+            <span>{activeDrawerTab === "details" ? "Full Cost Sheet tab" : "Quotation Details & Items"}</span>
+            <ArrowRight size={12} />
+          </button>
+        </div>
+      )}
+
+      {(col === "quotations" || col === "salesOrders" || col === "costSheets") && activeDrawerTab === "costSheet" && (
+        <div className="mb-6 space-y-4">
+          <QuotationCostSheet data={data} set={set} col={col} />
+        </div>
+      )}
+
+      <form id="record-form" onSubmit={save} className={(col === "quotations" || col === "salesOrders" || col === "costSheets") && activeDrawerTab === "costSheet" ? "hidden" : "block"}>
         <Section title="Details">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {m.fields
