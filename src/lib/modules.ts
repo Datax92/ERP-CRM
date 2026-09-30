@@ -330,8 +330,22 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "date", label: "Date", cell: (r) => date(r.date) },
       { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
       { key: "total", label: "Total price", align: "right", cell: (r) => money(r.amount, r.currency, r.amountPKR) },
-      { key: "margin", label: "Margin", align: "right", cell: (r) => money(r.margin, r.currency) },
-      { key: "marginPct", label: "Margin %", align: "right", cell: (r) => ({ text: fmtPct(r.marginPct), sort: num(r.marginPct) }) },
+      { key: "margin", label: "Gross Margin", align: "right", cell: (r) => money(r.margin, r.currency) },
+      {
+        key: "netMarginPct",
+        label: "Net Margin %",
+        align: "right",
+        cell: (r) => {
+          const val = r.netMarginPct !== undefined ? r.netMarginPct : r.marginPct;
+          const isHealthy = num(val) >= 15;
+          const isWarning = num(val) <= 0;
+          return {
+            text: fmtPct(val),
+            sort: num(val),
+            tone: isHealthy ? "good" : isWarning ? "bad" : "muted",
+          };
+        },
+      },
       { key: "followUp", label: "Follow-up", cell: (r) => badge(r.followUpStatus) },
       { key: "status", label: "Status", cell: (r) => badge(r.status) },
     ],

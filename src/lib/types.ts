@@ -67,11 +67,11 @@ export type LineItem = {
 
 export type ExtraCostItem = {
   category: string;
-  description: string;
+  description?: string;
   amount: number;
-  currency: string;
-  exchangeRate: number;
-  amountPKR: number;
+  currency?: string;
+  exchangeRate?: number;
+  amountPKR?: number;
   paidTo?: string;
 };
 

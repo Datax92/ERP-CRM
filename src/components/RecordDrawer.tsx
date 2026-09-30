@@ -13,6 +13,7 @@ import { MODULES, labelOf, statusTone, type FieldDef } from "@/lib/modules";
 import { conversionsFor, linkedRecords } from "@/lib/workflow";
 import { DealRoute } from "./TradeRoute";
 import { TotalPriceConverter } from "./TotalPriceConverter";
+import { QuotationCostSheet } from "./QuotationCostSheet";
 import type { CollectionName, LineItem, Rec } from "@/lib/types";
 
 export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName; id: string | "new"; onClose: () => void; onOpen: (col: CollectionName, id: string) => void }) {
@@ -128,6 +129,9 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
               onRateChange={(rate) => set({ exchangeRate: rate })}
               onChange={(items) => set({ items })}
             />
+            {itemsMode === "sale" && (
+              <QuotationCostSheet data={data} set={set} col={col} />
+            )}
           </Section>
         )}
 
