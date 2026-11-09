@@ -33,7 +33,22 @@ export type ModuleTotalBannerProps = {
  * Displays final total price, multi-currency switcher, realtime exchange rate status,
  * and breakdown across current and previous entries.
  */
-export function ModuleTotalBanner({
+export function ModuleTotalBanner(props: ModuleTotalBannerProps) {
+  const [expanded, setExpanded] = useState(false);
+  const summary = useMemo(() => calculateEntriesTotal(props), [props]);
+  return <div className="mb-3">
+    <div className="card flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
+      <span className="text-sm text-muted">{summary.count} records</span>
+      <strong className="num text-base">{summary.hasAmounts ? fmtMoney(summary.total, props.targetCurrency) : `${fmtNum(summary.totalQty)} units`}</strong>
+      {summary.totalMargin != null && <span className="text-sm text-muted">Margin <strong className={summary.totalMargin < 0 ? 'text-bad' : 'text-good'}>{fmtMoney(summary.totalMargin, props.targetCurrency)} ({fmtPct(summary.marginPct)})</strong></span>}
+      <span className="ml-auto text-xs text-muted">{props.rateMode === 'saved' ? 'Saved record rates' : 'Current exchange rates'}</span>
+      <button className="btn" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}><Coins size={14} />Currency & totals<ChevronDown size={14} className={expanded ? 'rotate-180' : ''} /></button>
+    </div>
+    {expanded && <div className="mt-2"><DetailedModuleTotalBanner {...props} /></div>}
+  </div>;
+}
+
+function DetailedModuleTotalBanner({
   col,
   title,
   rows,

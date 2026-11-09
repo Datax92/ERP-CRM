@@ -1,0 +1,90 @@
+/* Bridge the ERP's existing field and report components to Property's shared UI. */
+:root {
+  color-scheme: light;
+  --body: var(--font-body), 'Inter', 'Segoe UI', sans-serif;
+  --font-display-serif: var(--body); --font-plex-mono: var(--body);
+  --bg: var(--paper); --surface: var(--card); --surface-2: var(--paper-2);
+  --line: var(--rule); --line-strong: var(--rule-2); --muted: var(--ink-2); --faint: var(--ink-3);
+  --accent: var(--brand); --accent-hover: var(--brand-dk); --accent-ink: #fff; --accent-soft: var(--brand-wash);
+  --brass: var(--brand-2); --brass-soft: var(--brand-wash);
+  --sidebar: var(--brand); --sidebar-2: var(--brand-dk); --sidebar-ink: #fff; --sidebar-muted: #d4d8e8; --sidebar-line: var(--brand-edge);
+  --good: #1E7E34; --good-soft: #E4F4E8; --warn: #B4610A; --warn-soft: #FFF2D9; --bad: #C82333; --bad-soft: #FBE9EA;
+  --info: #2B4C9B; --info-soft: #EEF0F8;
+  --shadow: var(--sh-1); --shadow-lg: var(--sh-3); --highlight: none;
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --series-5: #e87ba4; --series-6: #008300;
+}
+body { font-family: var(--body); background: var(--paper); }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), select { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+.display { font-family: var(--body); font-weight: 600; letter-spacing: -.02em; }
+.eyebrow { font-family: var(--body); font-size: 11px; font-weight: 600; letter-spacing: .04em; }
+.serial { font-family: var(--body); font-size: 13px; }
+.btn { min-height: 31px; border-radius: 4px; padding: 4px 10px; font-size: 13px; box-shadow: none; }
+.btn-primary, .btn.pri { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn-primary:hover, .btn.pri:hover { background: var(--brand-dk); color: #fff; }
+.field { min-height: 34px; border-radius: 4px; font-size: 13px; box-shadow: none; }
+.card { border-radius: 4px; box-shadow: var(--sh-1); }
+.spacer { flex: 1 1 auto; }
+.kicker { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.page { padding: 0 16px 56px; }
+.erp-main { padding: 0 16px 40px; min-width: 0; }
+.erp-page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 -16px 16px; padding: 12px 16px; border-bottom: 1px solid var(--rule-2); background: var(--card); }
+.erp-page-header h1 { font-size: 18px; font-weight: 500; }
+.erp-page-header p { margin-top: 3px; font-size: 12px; color: var(--ink-3); }
+.erp-page-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; order: -1; }
+.erp-page-title { flex: 1; min-width: 180px; }
+.erp-nav-dropdown { top: 48px; right: 8px; width: 330px; }
+.erp-app-menu { left: 8px; right: auto; max-width: 700px; width: min(700px, calc(100vw - 16px)); display: grid; grid-template-columns: repeat(3, 1fr); }
+.o-nav-menu { flex-shrink: 1; }
+.o-nav-brand { max-width: 260px; }
+.o-nav-user .nm { max-width: 110px; }
+.o-nav svg { flex-shrink: 0; }
+.navsearch { flex: 0 1 160px; min-width: 90px; }
+.navsearch:focus { width: 220px; }
+.mobile-search, .mobile-search-field { display: none; }
+.menu a, .menu button { color: var(--ink); }
+.skip-link { position: fixed; top: -60px; left: 8px; z-index: 200; padding: 8px; background: white; }
+.skip-link:focus { top: 8px; }
+.launcher-search { margin: 18px auto 0; max-width: 310px; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--rule-2); color: var(--ink-3); }
+.launcher-search input { width: 100%; outline: none; font-size: 13px; background: transparent; }
+.o-home { min-height: calc(100vh - var(--nav-h)); }
+.o-home .shortcut { text-decoration: none; color: white; }
+.o-home[data-tone="dark"] .launcher-search { color: #fff; }
+.erp-filters { padding: 10px 12px; gap: 10px; margin-bottom: 12px; }
+.erp-filters .eyebrow { text-transform: none; letter-spacing: 0; color: var(--ink-2); }
+.erp-table th { background: #F1F2F4; }
+.erp-table th, .erp-table td { padding: 9px 12px; border-right: 1px solid var(--rule); }
+.erp-table th .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+.erp-table tbody tr:nth-child(even) { background: #FAFBFC; }
+.erp-table tbody tr:hover { background: var(--brand-wash); }
+.erp-table tbody tr:focus-visible { outline: 2px solid var(--brand-2); outline-offset: -2px; }
+.erp-viewbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.erp-tabs { display: inline-flex; border: 1px solid var(--rule-2); border-radius: 4px; overflow: hidden; }
+.erp-tabs button { padding: 6px 12px; font-size: 13px; border-right: 1px solid var(--rule); }
+.erp-tabs button[aria-selected="true"] { background: var(--brand-wash); color: var(--brand); font-weight: 600; }
+.erp-dialog-overlay { z-index: 100; align-items: center; justify-content: center; padding: 28px; }
+.erp-dialog { max-height: calc(100dvh - 56px); height: auto; border-radius: 6px; overflow: hidden; background: var(--paper); }
+.erp-dialog .drawer-title { font-size: 20px; }
+.erp-dialog-body { min-height: 0; }
+.ap { padding-top: 22px; }
+.property-brand-header .login-banner { width: 100%; }
+@media (max-width: 1100px) { .o-nav-user .nm { display: none; } .o-nav-brand { max-width: 180px; } .o-nav-item { padding: 0 8px; font-size: 13px; } .navsearch { display: none; } .mobile-search { display: inline-flex; } .mobile-search-field { display: block; padding: 8px 12px; } }
+@media (max-width: 720px) {
+  .o-nav { flex-wrap: wrap; flex: 0 0 auto; height: auto; min-height: 46px; }
+  .o-nav-apps, .o-nav-logo, .o-nav-brand, .o-nav-ic, .o-nav-user { height: 46px; }
+  .o-nav-logo { display: none; } .o-nav-brand { flex: 1; max-width: 150px; padding-left: 0; font-size: 14px; }
+  .o-nav > .spacer { min-width: 0; }
+  .o-nav-menu { order: 10; width: 100%; flex-basis: 100%; height: 38px; background: rgba(0,0,0,.12); }
+  .o-nav-item { flex-shrink: 0; }
+  .erp-app-menu { grid-template-columns: repeat(2, 1fr); }
+  .erp-main { padding: 0 12px 24px; }
+  .erp-page-header { margin-left: -12px; margin-right: -12px; padding: 12px; }
+  .erp-dialog-overlay { padding: 0; align-items: stretch; }
+  .erp-dialog { max-height: 100dvh; height: 100dvh; border-radius: 0; }
+  .page.o-home { padding-top: 20px; }
+  .erp-filters { gap: 8px; }
+  .erp-filters > label { max-width: 100%; min-width: 0; flex: 1 1 130px; }
+  .erp-filters .field { max-width: 100%; }
+}
+@media print { .o-nav, .skip-link, .erp-page-actions { display: none !important; } .erp-main { padding: 0; } .erp-dialog-overlay { position: static; padding: 0; } .erp-dialog { max-height: none; height: auto; box-shadow: none; } }

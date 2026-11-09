@@ -19,6 +19,14 @@ const copyItems = (items: LineItem[] | undefined, keepPrices: boolean): LineItem
 
 const carry = (r: Rec) => ({ attachments: r.attachments ?? [], notes: r.notes ?? "" });
 
+/** Keep deal-cost assumptions when moving a cost sheet into the sales workflow. */
+const carryCosting = (r: Rec) => Object.fromEntries([
+  'purchaseCurrency', 'purchaseExchangeRate', 'extraCosts', 'freightAmount', 'freightCurrency', 'freightRate', 'customsDutyAmount', 'customsCurrency', 'customsRate',
+  'clearingAmount', 'portDemurrageAmount', 'insuranceAmount', 'bankChargesAmount', 'cartageAmount',
+  'inspectionAmount', 'otherExpensesAmount', 'commissionRecipient', 'commissionAgent', 'commissionType',
+  'commissionRate', 'commissionAmount', 'commissions', 'taxMode', 'applyIncomeTax', 'whtSaleRate', 'whtImportRate', 'gstOutputRate', 'gstInputRate', 'incomeTaxRate',
+].filter((key) => r[key] !== undefined).map((key) => [key, r[key]]));
+
 /** A step in the chain: what the user sees and what it produces. */
 export type Conversion = { label: string; target: CollectionName; run: () => Promise<Rec>; disabled?: string };
 
@@ -50,6 +58,7 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
     }
     case "costSheets": {
       const existingQuote = s.quotations.find((q) => q.costSheetId === r.id || (r.rfqId && q.rfqId === r.rfqId));
+      const existingOrder = s.salesOrders.find((o) => o.status !== 'Cancelled' && (o.costSheetId === r.id || o.id === r.salesOrderId || (existingQuote && o.quotationId === existingQuote.id)));
       out.push({
         label: "Create quotation from cost sheet",
         target: "quotations",
@@ -62,6 +71,7 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
             clientId: r.clientId,
             rfqId: r.rfqId,
             costSheetId: r.id,
+            ...carryCosting(r),
             currency: r.currency,
             exchangeRate: r.exchangeRate,
             items: copyItems(r.items, true),
@@ -74,12 +84,14 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
       out.push({
         label: "Convert to sales order",
         target: "salesOrders",
+        disabled: existingOrder ? `Already converted to ${existingOrder.serial}` : undefined,
         run: async () => {
           const so = await create("salesOrders", {
             id: "",
             ...MODULES.salesOrders.defaults(s),
             clientId: r.clientId,
             costSheetId: r.id,
+            ...carryCosting(r),
             currency: r.currency,
             exchangeRate: r.exchangeRate,
             items: copyItems(r.items, true),
@@ -103,6 +115,8 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
             ...MODULES.salesOrders.defaults(s),
             clientId: r.clientId,
             quotationId: r.id,
+            costSheetId: r.costSheetId ?? '',
+            ...carryCosting(r),
             region: r.region ?? "",
             sector: r.sector ?? "",
             currency: r.currency,
@@ -132,7 +146,7 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
         out.push({
           label: name ? `Issue PO to ${name}` : "Issue purchase order",
           target: "purchaseOrders",
-          disabled: supplierId && already.has(supplierId) ? `PO already issued to ${name}` : undefined,
+          disabled: already.has(supplierId) ? `PO already issued${name ? ` to ${name}` : ''}` : undefined,
           run: async () => {
             const sup = s.byId.suppliers.get(supplierId);
             const po = await create("purchaseOrders", {
@@ -349,7 +363,8 @@ export function linkedRecords(col: CollectionName, r: Rec, s: Store): { col: Col
       up("proformaInvoices", r.proformaId);
       break;
   }
-  return out;
+  // A bidirectional relationship can be found both by its ID and by the reverse link.
+  return [...new Map(out.map((link) => [`${link.col}:${link.rec.id}`, link])).values()];
 }
 
 // ---------- Trade route: the whole deal a document belongs to ----------

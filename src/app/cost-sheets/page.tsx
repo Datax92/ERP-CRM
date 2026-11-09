@@ -1,13 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from 'next/navigation';
 import { Calculator, LayoutList } from "lucide-react";
 import { ModulePage } from "@/components/ModulePage";
 import { PageHeader } from "@/components/ui";
 import { CostSheetWorkspace } from "./CostSheetWorkspace";
 
 export default function CostSheetsPage() {
-  const [viewMode, setViewMode] = useState<"workspace" | "table">("workspace");
+  return <Suspense fallback={<p>Loading…</p>}><CostSheetsContent /></Suspense>;
+}
+
+function CostSheetsContent() {
+  const params = useSearchParams();
+  const [viewMode, setViewMode] = useState<"workspace" | "table">(params.get('view') === 'workspace' ? 'workspace' : 'table');
+  const showRecord = params.has('id') || params.has('new');
 
   return (
     <div>
@@ -41,7 +48,7 @@ export default function CostSheetsPage() {
         </div>
       </div>
 
-      {viewMode === "workspace" ? (
+      {viewMode === "workspace" && !showRecord ? (
         <div>
           <PageHeader
             title="Trading Cost Sheets (Deal Costing)"

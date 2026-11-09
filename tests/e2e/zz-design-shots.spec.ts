@@ -6,9 +6,9 @@ test("design review shots", async ({ page, browser }) => {
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${S}/40-login.png` });
   await page.getByLabel("Email").fill("owner@test.local");
-  await page.getByLabel("Password").fill("test1234");
+  await page.getByLabel(/^Password/).fill("test1234");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
   await page.waitForTimeout(1500);
   await page.screenshot({ path: `${S}/41-dashboard-fold.png` });
   await page.goto("/clients/");

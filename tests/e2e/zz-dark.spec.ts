@@ -3,9 +3,9 @@ test.use({ colorScheme: "dark" });
 test("dark mode shots", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Email").fill("owner@test.local");
-  await page.getByLabel("Password").fill("test1234");
+  await page.getByLabel(/^Password/).fill("test1234");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
   await page.waitForTimeout(1500);
   await page.screenshot({ path: "tests/e2e/screenshots/50-dark-dashboard.png" });
   await page.goto("/quotations/?tab=reports");

@@ -75,9 +75,12 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const [tab, setTab] = useState<"records" | "reports">(
-    (params.get("tab") as "records" | "reports" | null) ?? defaultTab
-  );
+  const tab = params.get('tab') === 'reports' && report ? 'reports' : params.get('tab') === 'records' ? 'records' : defaultTab;
+  const setTab = (value: 'records' | 'reports') => {
+    const next = new URLSearchParams(params.toString());
+    next.set('tab', value);
+    router.replace(`${pathname}?${next}`, { scroll: false });
+  };
   const [f, setF] = useState<FilterState>({ q: "", from: "", to: "", sel: {} });
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({
     key: m.columns.find((c) => c.key === "date") ? "date" : m.columns[0].key,
@@ -95,6 +98,8 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
     if (typeof window !== "undefined") {
       try {
         const savedCur = localStorage.getItem("trade_erp_target_currency");
+        // Restore browser currency preferences after hydration.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (savedCur) setTargetCurrency(savedCur);
       } catch {
         // Ignore localStorage error
@@ -140,11 +145,17 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   };
 
   const openId = params.get("id") ?? (params.get("new") ? "new" : null);
+  const recordUrl = (id?: string) => {
+    const next = new URLSearchParams(params.toString());
+    next.delete('id'); next.delete('new');
+    if (id) next.set(id === 'new' ? 'new' : 'id', id === 'new' ? '1' : id);
+    return `${pathname}${next.size ? `?${next}` : ''}`;
+  };
   const openRecord = (c: CollectionName, id: string) => {
-    if (c === col) router.replace(`${pathname}?id=${id}`, { scroll: false });
+    if (c === col) router.replace(recordUrl(id), { scroll: false });
     else router.push(`${MODULES[c].href}?id=${id}`);
   };
-  const close = () => router.replace(pathname, { scroll: false });
+  const close = () => router.replace(recordUrl(), { scroll: false });
 
   const filtered = useMemo(() => applyFilters(m, s[col], f, s), [m, s, col, f]);
   const sorted = useMemo(() => {
@@ -196,7 +207,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
             </button>
             <button
               className="btn btn-primary"
-              onClick={() => router.replace(`${pathname}?new=1`, { scroll: false })}
+              onClick={() => router.replace(recordUrl('new'), { scroll: false })}
             >
               <Plus size={14} /> New {m.singular.toLowerCase()}
             </button>
@@ -205,12 +216,13 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
       />
 
       {/* Filters: one row above both the table and the reports */}
-      <div className="card mb-5 flex flex-wrap items-end gap-3 p-4">
+      <div className="erp-filters card flex flex-wrap items-end">
         <label className="relative min-w-48 flex-1">
           <Search size={14} className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint" />
           <input
             className="field pl-8"
             placeholder="Search…"
+            aria-label={`Search ${m.title.toLowerCase()}`}
             value={f.q}
             onChange={(e) => setF({ ...f, q: e.target.value })}
           />
@@ -258,7 +270,8 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
       {report && (
         <div
           role="tablist"
-          className="mb-5 inline-flex rounded-xl border border-line bg-surface p-1 shadow-[var(--shadow)]"
+          aria-label="View"
+          className="erp-tabs mb-3"
         >
           {(["records", "reports"] as const).map((t) => (
             <button
@@ -266,11 +279,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
               role="tab"
               aria-selected={tab === t}
               onClick={() => setTab(t)}
-              className={`rounded-lg px-4 py-1.5 text-[13px] font-medium transition ${
-                tab === t
-                  ? "bg-accent text-accent-ink shadow-sm"
-                  : "text-muted hover:text-ink"
-              }`}
+              className="transition"
             >
               {t === "records" ? `Records (${filtered.length})` : "Reports & graphs"}
             </button>
@@ -307,7 +316,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
       ) : (
         <>
           <div className="card overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="erp-table w-full text-sm" aria-label={m.title}>
               <thead className="border-b border-line bg-surface-2/70 text-left">
                 <tr>
                   {m.columns.map((c) => (
@@ -338,6 +347,8 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
                 {sorted.slice(0, limit).map((r) => (
                   <tr
                     key={r.id}
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRecord(col, r.id); } }}
                     className="group cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-accent-soft/40"
                     onClick={() => openRecord(col, r.id)}
                   >

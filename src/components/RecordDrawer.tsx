@@ -26,6 +26,7 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
   const [error, setError] = useState("");
   const [activeDrawerTab, setActiveDrawerTab] = useState<"details" | "costSheet">("details");
   const isNew = !existing;
+  const close = () => { if (!busy && (!dirty || window.confirm("Discard unsaved changes?"))) onClose(); };
 
   if (id !== "new" && !existing) {
     return (
@@ -62,13 +63,17 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
   }
 
   async function remove() {
+    if (busy) return;
     const links = linkedRecords(col, data, s).length;
     const msg = links
       ? `Delete ${labelOf(col, data, s)}? ${links} linked record(s) will keep pointing at it and show it as deleted.`
       : `Delete ${labelOf(col, data, s)}? This cannot be undone.`;
     if (!window.confirm(msg)) return;
-    await deleteRecord(col, data.id);
-    onClose();
+    setBusy(true);
+    setError('');
+    try { await deleteRecord(col, data.id); onClose(); }
+    catch (err) { setError(`Delete failed: ${(err as Error).message}`); }
+    finally { setBusy(false); }
   }
 
   const title = isNew ? `New ${m.singular.toLowerCase()}` : labelOf(col, existing, s);
@@ -76,9 +81,7 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
   return (
     <Drawer
       open
-      onClose={() => {
-        if (!dirty || window.confirm("Discard unsaved changes?")) onClose();
-      }}
+      onClose={close}
       eyebrow={isNew ? "New record" : m.singular}
       title={title}
       aside={existing ? <DealRoute col={col} r={existing} s={s} onOpen={onOpen} /> : undefined}
@@ -86,11 +89,11 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
         <>
           {error && <span className="mr-auto self-center text-sm text-bad">{error}</span>}
           {!isNew && (
-            <button type="button" className="btn btn-danger mr-auto" onClick={remove}>
+            <button type="button" className="btn btn-danger mr-auto" onClick={remove} disabled={busy}>
               <Trash2 size={14} /> Delete
             </button>
           )}
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn" onClick={close} disabled={busy}>
             Close
           </button>
           <button type="submit" form="record-form" className="btn btn-primary" disabled={busy}>

@@ -202,6 +202,7 @@ describe("Cost Sheet Calculation Engine (Deal Costing)", () => {
       rfqs: [rfq],
       costSheets: [],
       quotations: [],
+      salesOrders: [],
     };
 
     const rfqActions = conversionsFor("rfqs", rfq, emptyStore);

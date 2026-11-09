@@ -26,10 +26,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(() => mergeSettings(undefined));
   const [loaded, setLoaded] = useState<Set<string>>(new Set());
   const [owner, setOwner] = useState<"checking" | "ok" | "denied">("checking");
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     if (!isConfigured) return;
-    return onAuthStateChanged(fb().auth, setUser);
+    return onAuthStateChanged(fb().auth, (nextUser) => {
+      setOwner('checking');
+      setData(emptyData());
+      setLoaded(new Set());
+      setSettings(mergeSettings(undefined));
+      setError('');
+      setUser(nextUser);
+    });
   }, []);
 
   // Single-user system: the first account to sign in becomes the owner (enforced by the
@@ -43,12 +52,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (!snap.exists()) await setDoc(ref, { uid: user.uid, email: user.email, claimedAt: new Date().toISOString() });
       else if (snap.data().uid !== user.uid) return !cancelled && setOwner("denied");
       if (!cancelled) setOwner("ok");
-      // Offline with no cached owner doc: carry on — the security rules still guard the data.
-    })().catch(() => !cancelled && setOwner("ok"));
+    })().catch(() => !cancelled && setError('Unable to verify account access. Check your connection and try again.'));
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, retry]);
 
   // Single-user app with modest data: keep every collection live in memory so all
   // screens, derived stages and reports read the same up-to-date records.
@@ -60,16 +68,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Rec);
         setData((prev) => ({ ...prev, [col]: rows }));
         setLoaded((prev) => new Set(prev).add(col));
-      }),
+      }, () => setError(`Unable to load ${col}. Check your connection and account permissions, then retry.`)),
     );
     unsubs.push(
       onSnapshot(doc(db, "meta", "settings"), (snap) => {
         setSettings(mergeSettings(snap.data() as Partial<Settings> | undefined));
         setLoaded((prev) => new Set(prev).add("settings"));
-      }),
+      }, () => setError('Unable to load company settings. Please retry.')),
     );
     return () => unsubs.forEach((u) => u());
-  }, [user, owner]);
+  }, [user, owner, retry]);
 
   const value = useMemo<Ctx | null>(() => {
     if (!user) return null;
@@ -80,6 +88,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   if (!isConfigured) return <SetupScreen />;
   if (user === undefined) return <div className="grid min-h-screen place-items-center text-muted">Loading…</div>;
   if (!user || !value) return <LoginScreen />;
+  if (error) return <div className="grid min-h-screen place-items-center p-4"><div className="card max-w-lg space-y-4 p-6" role="alert"><h1 className="text-lg font-semibold">Could not load your workspace</h1><p>{error}</p><div className="flex gap-2"><button className="btn btn-primary" onClick={() => { setError(''); setRetry((n) => n + 1); }}>Retry</button><button className="btn" onClick={() => signOut(fb().auth)}>Sign out</button></div></div></div>;
   if (owner === "denied")
     return (
       <div className="grid min-h-screen place-items-center p-4 text-center text-sm">

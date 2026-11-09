@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
@@ -43,13 +43,13 @@ export function CellView({ cell, serial }: { cell: Cell; serial?: boolean }) {
 export function PageHeader({ title, subtitle, actions, eyebrow }: { title: string; subtitle?: string; actions?: ReactNode; eyebrow?: string }) {
   const pathname = usePathname();
   return (
-    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0">
-        <div className="eyebrow mb-2">{eyebrow ?? navGroupFor(pathname)}</div>
-        <h1 className="display text-[34px] leading-[1.05] text-ink sm:text-[40px]">{title}</h1>
-        {subtitle && <p className="mt-2 max-w-2xl text-[13.5px] text-muted">{subtitle}</p>}
+    <div className="erp-page-header">
+      <div className="erp-page-title">
+        <span className="sr-only">{eyebrow ?? navGroupFor(pathname)}</span>
+        <h1>{title}</h1>
+        {subtitle && <p>{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="erp-page-actions">{actions}</div>}
     </div>
   );
 }
@@ -71,17 +71,40 @@ export function Drawer({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    dialogRef.current?.focus();
+    const keys = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault(); closeRef.current(); }
+      if (e.key === 'Tab') {
+        const nodes = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]') || []).filter((n) => n.getClientRects().length);
+        const first = nodes[0], last = nodes[nodes.length - 1];
+        if (!first) { e.preventDefault(); return; }
+        if (e.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && (document.activeElement === last || document.activeElement === dialogRef.current)) { e.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', keys);
+    return () => { document.removeEventListener('keydown', keys); document.body.style.overflow = overflow; previous?.focus(); };
+  }, [open]);
   if (!open || typeof document === "undefined") return null;
   // Portalled to <body> so no transformed ancestor (page transitions) can trap the fixed overlay.
   return createPortal(
-    <div className="fixed inset-0 z-40 flex justify-end">
+    <div className="erp-dialog-overlay fixed inset-0 flex">
       <div className="anim-fade absolute inset-0 bg-[#0a1411]/40 backdrop-blur-[3px]" onClick={onClose} />
-      <div role="dialog" aria-modal className="anim-drawer relative flex h-full w-full max-w-[960px] flex-col bg-bg shadow-[var(--shadow-lg)]">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="erp-dialog anim-drawer relative flex w-full max-w-[1100px] flex-col shadow-[var(--shadow-lg)]">
         <div className="border-b border-line bg-surface px-5 pt-4 pb-4 sm:px-7">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               {eyebrow && <div className="eyebrow mb-1">{eyebrow}</div>}
-              <div className="drawer-title display truncate text-[26px] leading-tight text-ink">{title}</div>
+              <div id={titleId} className="drawer-title display truncate leading-tight text-ink">{title}</div>
             </div>
             <button className="btn size-9 shrink-0 !px-0" onClick={onClose} aria-label="Close">
               <X size={16} />
@@ -89,7 +112,7 @@ export function Drawer({
           </div>
           {aside && <div className="mt-4">{aside}</div>}
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-7">{children}</div>
+        <div className="erp-dialog-body flex-1 overflow-y-auto px-5 py-5 sm:px-7">{children}</div>
         {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line bg-surface px-5 py-3 sm:px-7">{footer}</div>}
       </div>
     </div>,

@@ -51,6 +51,8 @@ dev.log
 test-results/
 playwright-report/
 tests/e2e/screenshots/
+output/
+.playwright-cli/
 
 .vercel
 .env*

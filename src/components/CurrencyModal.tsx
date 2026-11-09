@@ -73,7 +73,7 @@ export function CurrencyModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
       <div className="card w-full max-w-lg border border-line bg-surface p-5 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-line pb-3">

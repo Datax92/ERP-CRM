@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
   ArrowRight,
@@ -53,6 +54,7 @@ import {
 import { deleteRecord, newId, patchRecord, saveRecord } from "@/lib/db";
 import { fetchRateToPKR } from "@/lib/fx";
 import { labelOf, MODULES } from "@/lib/modules";
+import { conversionsFor } from '@/lib/workflow';
 import type { CollectionName, LineItem, Rec } from "@/lib/types";
 
 export type CostSheetWorkspaceProps = {
@@ -62,61 +64,53 @@ export type CostSheetWorkspaceProps = {
 
 export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspaceProps) {
   const s = useStore();
+  const router = useRouter();
+  const loadedId = useRef<string | null>(null);
+  const [error, setError] = useState('');
   const allSheets: Rec[] = s.costSheets ?? [];
 
   // Currently selected or editing Cost Sheet ID
   const [activeId, setActiveId] = useState<string | null>(initialId || null);
 
   // Form State
-  const [title, setTitle] = useState("Industrial Kraft Paper Supply Deal");
+  const [title, setTitle] = useState("");
   const [date, setDate] = useState(today());
   const [clientId, setClientId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [project, setProject] = useState("A&SONS WORK");
-  const [currency, setCurrency] = useState("USD");
-  const [exchangeRate, setExchangeRate] = useState<number>(278);
-  const [purchaseCurrency, setPurchaseCurrency] = useState("USD");
-  const [purchaseExchangeRate, setPurchaseExchangeRate] = useState<number>(278);
+  const [currency, setCurrency] = useState("PKR");
+  const [exchangeRate, setExchangeRate] = useState<number>(1);
+  const [purchaseCurrency, setPurchaseCurrency] = useState("PKR");
+  const [purchaseExchangeRate, setPurchaseExchangeRate] = useState<number>(1);
   const [status, setStatus] = useState("Draft");
   const [notes, setNotes] = useState("");
 
   // Line items (Sale & Purchase)
-  const [items, setItems] = useState<LineItem[]>([
-    {
-      description: "100 GSM Virgin Kraft Paper Reels",
-      product: "Kraft Paper",
-      brand: "Mondi / Stora Enso",
-      supplierId: "",
-      qty: 100,
-      unit: "Ton",
-      unitCost: 1200,
-      unitPrice: 1500,
-    },
-  ]);
+  const [items, setItems] = useState<LineItem[]>([emptyItem()]);
 
   // Extra Landed Expenses (in PKR or Deal Currency)
-  const [freightAmount, setFreightAmount] = useState<number>(1390000); // e.g. $5,000 ocean freight
-  const [customsDutyAmount, setCustomsDutyAmount] = useState<number>(2001600); // 6% customs
-  const [clearingAmount, setClearingAmount] = useState<number>(150000); // C&F agent fee
-  const [portDemurrageAmount, setPortDemurrageAmount] = useState<number>(80000); // Port charges
-  const [insuranceAmount, setInsuranceAmount] = useState<number>(65000); // Marine insurance
-  const [bankChargesAmount, setBankChargesAmount] = useState<number>(120000); // Bank LC / TT fee
-  const [cartageAmount, setCartageAmount] = useState<number>(240000); // Local cartage
-  const [inspectionAmount, setInspectionAmount] = useState<number>(50000); // SGS inspection
+  const [freightAmount, setFreightAmount] = useState<number>(0);
+  const [customsDutyAmount, setCustomsDutyAmount] = useState<number>(0);
+  const [clearingAmount, setClearingAmount] = useState<number>(0);
+  const [portDemurrageAmount, setPortDemurrageAmount] = useState<number>(0);
+  const [insuranceAmount, setInsuranceAmount] = useState<number>(0);
+  const [bankChargesAmount, setBankChargesAmount] = useState<number>(0);
+  const [cartageAmount, setCartageAmount] = useState<number>(0);
+  const [inspectionAmount, setInspectionAmount] = useState<number>(0);
   const [otherExpensesAmount, setOtherExpensesAmount] = useState<number>(0);
 
   // Commission & Brokerage
-  const [commissionRecipient, setCommissionRecipient] = useState("Ahmed Trading Broker");
+  const [commissionRecipient, setCommissionRecipient] = useState("");
   const [commissionType, setCommissionType] = useState<"percent_sale" | "percent_purchase" | "per_unit" | "fixed">("percent_sale");
-  const [commissionRate, setCommissionRate] = useState<number>(1.5); // 1.5% of sale
+  const [commissionRate, setCommissionRate] = useState<number>(0);
 
   // Taxes
-  const [taxMode, setTaxMode] = useState<"wht" | "corporate" | "both" | "none">("wht");
-  const [whtSaleRate, setWhtSaleRate] = useState<number>(4.0); // 4% WHT on supplies in Pakistan
+  const [taxMode, setTaxMode] = useState<"wht" | "corporate" | "both" | "none">("none");
+  const [whtSaleRate, setWhtSaleRate] = useState<number>(0);
   const [whtImportRate, setWhtImportRate] = useState<number>(0); // e.g. 5.5% import tax
-  const [gstOutputRate, setGstOutputRate] = useState<number>(18.0); // 18% GST output
-  const [gstInputRate, setGstInputRate] = useState<number>(18.0); // 18% GST input
-  const [incomeTaxRate, setIncomeTaxRate] = useState<number>(29.0); // 29% corporate income tax
+  const [gstOutputRate, setGstOutputRate] = useState<number>(0);
+  const [gstInputRate, setGstInputRate] = useState<number>(0);
+  const [incomeTaxRate, setIncomeTaxRate] = useState<number>(0);
 
   // Target Margin Simulator / What-If Target
   const [targetMarginGoal, setTargetMarginGoal] = useState<number>(10);
@@ -131,10 +125,13 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
 
   // Auto load active record when activeId changes
   useEffect(() => {
-    if (!activeId) return;
+    if (!activeId || loadedId.current === activeId) return;
     const rec = allSheets.find((x) => x.id === activeId);
     if (!rec) return;
+    loadedId.current = activeId;
 
+    // Load a selected saved document once; unrelated live updates must not erase edits.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTitle(rec.title || "Untitled Deal");
     setDate(rec.date || today());
     setClientId(rec.clientId || "");
@@ -147,9 +144,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
     setStatus(rec.status || "Draft");
     setNotes(rec.notes || "");
 
-    if (Array.isArray(rec.items) && rec.items.length) {
-      setItems(rec.items);
-    }
+    setItems(Array.isArray(rec.items) ? rec.items : []);
     setFreightAmount(num(rec.freightAmount));
     setCustomsDutyAmount(num(rec.customsDutyAmount));
     setClearingAmount(num(rec.clearingAmount));
@@ -237,10 +232,15 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
   }, [analysis, targetMarginGoal, taxMode, whtSaleRate, exchangeRate]);
 
   // Save current Cost Sheet
-  async function handleSave() {
+  async function handleSave(keepBusy = false): Promise<Rec | undefined> {
+    setError('');
+    if (!title.trim()) { setError('Enter a deal title.'); return; }
+    if (!items.length || items.some((i) => !(i.description || i.product) || num(i.qty) <= 0)) { setError('Add an item description and a quantity greater than zero for every line.'); return; }
+    if (!(exchangeRate > 0) || !(purchaseExchangeRate > 0)) { setError('Exchange rates must be greater than zero.'); return; }
     setSaving(true);
     try {
       const dataToSave: Rec = {
+        ...(activeId ? s.byId.costSheets.get(activeId) : {}),
         id: activeId || newId("costSheets"),
         title: title.trim() || "Trading Cost Sheet",
         date,
@@ -284,17 +284,36 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
       });
 
       if (!activeId) {
+        loadedId.current = saved.id;
         setActiveId(saved.id);
       }
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
+      return saved;
+    } catch (err) {
+      setError(`Could not save cost sheet: ${(err as Error).message}`);
     } finally {
-      setSaving(false);
+      if (!keepBusy) setSaving(false);
     }
+  }
+
+  function newDeal() {
+    if (!window.confirm('Start a new deal? Save any changes to the current sheet first.')) return;
+    loadedId.current = null;
+    setActiveId(null); setTitle(''); setDate(today()); setClientId(''); setSupplierId(''); setNotes('');
+    setProject(''); setCurrency('PKR'); setExchangeRate(1); setPurchaseCurrency('PKR'); setPurchaseExchangeRate(1);
+    setItems([emptyItem()]); setStatus('Draft'); setError(''); setSavedSuccess(false);
+    setFreightAmount(0); setCustomsDutyAmount(0); setClearingAmount(0); setPortDemurrageAmount(0);
+    setInsuranceAmount(0); setBankChargesAmount(0); setCartageAmount(0); setInspectionAmount(0); setOtherExpensesAmount(0);
+    setCommissionRecipient(''); setCommissionType('percent_sale'); setCommissionRate(0); setTaxMode('none');
+    setWhtSaleRate(0); setWhtImportRate(0); setGstOutputRate(0); setGstInputRate(0); setIncomeTaxRate(0);
   }
 
   // Pre-load an impressive full trading sample deal
   function handleLoadTradeSample() {
+    if (!window.confirm('Load an example as a new, unsaved sheet? Save your current changes first.')) return;
+    loadedId.current = null;
+    setActiveId(null); setClientId(''); setSupplierId(''); setError('');
     setTitle("Import & Supply: 100 MT Kraft Paper Reels");
     setDate(today());
     setProject("A&SONS WORK");
@@ -350,34 +369,22 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
 
   // Convert Cost Sheet to Quotation
   async function handleConvertToQuotation() {
+    if (saving) return;
     if (!clientId) {
       alert("Please select a linked Client first before creating a Quotation.");
       return;
     }
     setSaving(true);
     try {
-      await handleSave();
-      const q = await saveRecord(
-        "quotations",
-        {
-          id: newId("quotations"),
-          clientId,
-          costSheetId: activeId || undefined,
-          date: today(),
-          currency,
-          exchangeRate,
-          title: `Quote based on ${title}`,
-          items: items.map((i) => ({ ...i })),
-          status: "Draft",
-          notes: `Generated from Cost Sheet ${activeId || ""}. Target Gross Margin: ${fmtPct(analysis.grossMarginPct)}, Net Margin: ${fmtPct(analysis.netMarginPct)}.`,
-        },
-        { itemsMode: "sale", amountField: "totalPrice", serialPrefix: "QT" }
-      );
-      if (activeId) {
-        await patchRecord("costSheets", activeId, { quotationId: q.id, status: "Costed" });
-      }
-      alert(`Quotation ${q.serial || q.id} successfully created!`);
-      onOpenRecord?.("quotations", q.id);
+      const saved = await handleSave(true);
+      if (!saved) return;
+      const action = conversionsFor('costSheets', saved, s).find((a) => a.target === 'quotations')!;
+      if (action.disabled) { setError(action.disabled); return; }
+      const q = await action.run();
+      if (onOpenRecord) onOpenRecord('quotations', q.id);
+      else router.push(`${MODULES.quotations.href}?id=${q.id}`);
+    } catch (err) {
+      setError(`Could not create quotation: ${(err as Error).message}`);
     } finally {
       setSaving(false);
     }
@@ -404,6 +411,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
 
   return (
     <div className="space-y-5">
+      {error && <p role="alert" className="rounded border border-bad/30 bg-bad-soft p-3 text-sm text-bad">{error}</p>}
       {/* Top Header & Deal Selector Bar */}
       <div className="card border border-line bg-surface p-4 shadow-[var(--shadow)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -427,7 +435,11 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
               <select
                 className="field h-8 max-w-56 text-xs"
                 value={activeId ?? ""}
-                onChange={(e) => setActiveId(e.target.value || null)}
+                aria-label="Select cost sheet"
+                onChange={(e) => {
+                  if (!e.target.value) { newDeal(); return; }
+                  if (window.confirm('Open this sheet? Save any current changes first.')) setActiveId(e.target.value);
+                }}
               >
                 <option value="">＋ New Deal Cost Sheet…</option>
                 {allSheets.map((sh) => (
@@ -450,11 +462,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
 
             <button
               type="button"
-              onClick={() => {
-                setActiveId(null);
-                setTitle("New Deal Costing");
-                setItems([emptyItem()]);
-              }}
+              onClick={newDeal}
               className="btn btn-ghost h-8 px-2.5 text-xs"
             >
               <Plus size={13} /> New Deal
@@ -462,7 +470,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
 
             <button
               type="button"
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               disabled={saving}
               className="btn btn-primary h-8 px-3.5 text-xs font-semibold"
             >
@@ -573,6 +581,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
               <label className="text-[11px] font-semibold text-muted uppercase">Deal Title / Reference</label>
               <input
                 type="text"
+                aria-label="Deal title"
                 className="field mt-1 text-sm font-semibold w-full"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -585,6 +594,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
               <select
                 className="field mt-1 text-xs w-full"
                 value={clientId}
+                aria-label="Client"
                 onChange={(e) => setClientId(e.target.value)}
               >
                 <option value="">— Select Client —</option>
@@ -1109,7 +1119,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
                 <select
                   className="field mt-1 text-xs w-full"
                   value={commissionType}
-                  onChange={(e) => setCommissionType(e.target.value as any)}
+                  onChange={(e) => setCommissionType(e.target.value as typeof commissionType)}
                 >
                   <option value="percent_sale">% of Total Gross Sale</option>
                   <option value="percent_purchase">% of Total Purchase Cost</option>
@@ -1162,7 +1172,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
             <div className="rounded-lg border border-line bg-surface-2/30 p-3 text-xs text-muted flex items-start gap-2">
               <Receipt size={16} className="text-warn shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-ink">Tax Calculation Engine — "How Much Tax Needed to Pay"</p>
+                <p className="font-semibold text-ink">Tax estimates</p>
                 <p className="text-[11px] mt-0.5">
                   Simulate exact tax deductions by the client (Withholding Tax / WHT), customs advance tax on imports, sales tax (Output vs Input GST), and corporate income tax on profits.
                 </p>
@@ -1334,7 +1344,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
                     Target Net Margin Pricing Simulator
                   </h3>
                   <p className="text-xs text-muted mt-0.5">
-                    "If I want a <strong className="text-accent">{targetMarginGoal}% net profit</strong>, what price should I quote the customer?"
+                    Selling price for a target <strong className="text-accent">{targetMarginGoal}% net profit</strong>.
                   </p>
                 </div>
 

@@ -1,5 +1,11 @@
 # Trade ERP
 
+The interface now shares the client-owned Property application's launcher artwork, branding, navbar, sign-in screen, wallpapers, and appearance controls. Home (`/`) is the app launcher; the business dashboard is at `/dashboard`. Use the app grid or click the section name in the top bar to switch modules. The top-bar search finds both apps and records.
+
+Cost Sheets is now available from Home and the Sales menu. Its default view lists saved records; the workspace tab provides the full calculator. New sheets start with empty items and zero costs. Example values are loaded only through the explicit sample button. Currency details on record lists expand from **Currency & totals**.
+
+See [the implementation review](docs/property-ui-review.md) for requirement coverage, fixes, and validation.
+
 Custom ERP for a trading / supply business, built from the client's Excel (`Book1 ERP.xlsx`) and the,
 requirements conversation. Next.js (static export) + Firebase (Auth, Firestore, Storage). One user..
 

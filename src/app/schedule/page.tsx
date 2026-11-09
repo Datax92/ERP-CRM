@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { BookOpen, CalendarCheck, LayoutList, Plus } from "lucide-react";
 import { ModulePage } from "@/components/ModulePage";
 import { PageHeader } from "@/components/ui";
 import { SchedulePlanner } from "./SchedulePlanner";
 
 export default function SchedulePage() {
-  const router = useRouter();
+  return <Suspense fallback={<p>Loading…</p>}><ScheduleContent /></Suspense>;
+}
+
+function ScheduleContent() {
+  const params = useSearchParams();
   const [viewMode, setViewMode] = useState<"planner" | "table">("planner");
 
   return (
@@ -43,7 +47,7 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {viewMode === "planner" ? (
+      {viewMode === "planner" && !params.has('id') && !params.has('new') ? (
         <div>
           <PageHeader
             title="Tasks & Schedule Planner"

@@ -22,9 +22,9 @@ async function resetEmulator() {
 async function login(page: Page) {
   await page.goto("/");
   await page.getByLabel("Email").fill("owner@test.local");
-  await page.getByLabel("Password").fill("test1234");
+  await page.getByLabel(/^Password/).fill("test1234");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
 }
 
 const drawer = (page: Page) => page.getByRole("dialog");
@@ -157,6 +157,10 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
 });
 
 const PAGES: [string, string][] = [
+  ["/dashboard/", "09-dashboard"],
+  ["/appearance/", "27-appearance"],
+  ["/cost-sheets/", "28-cost-sheets"],
+  ["/schedule/", "29-schedule"],
   ["/", "10-dashboard"],
   ["/clients/?tab=reports", "11-clients-report"],
   ["/suppliers/?tab=reports", "12-suppliers-report"],
@@ -214,16 +218,16 @@ test("no console errors on any page, report or record", async ({ page }) => {
   page.on("pageerror", (e) => problems.push(`${page.url()} [pageerror] ${e.message}`));
   await page.goto("/");
   await page.getByLabel("Email").fill("owner@test.local");
-  await page.getByLabel("Password").fill("test1234");
+  await page.getByLabel(/^Password/).fill("test1234");
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
   for (const r of ROUTES) {
     await page.goto(r);
     await expect(page.locator("main h1")).toBeVisible();
-    const reports = page.getByRole("button", { name: "Reports & graphs" });
+    const reports = page.getByRole("tab", { name: "Reports & graphs" });
     if (await reports.count()) await reports.click();
     await page.waitForTimeout(500);
-    const records = page.getByRole("button", { name: /^Records/ });
+    const records = page.getByRole("tab", { name: /^Records/ });
     if (await records.count()) {
       await records.click();
       const firstRow = page.locator("main tbody tr").first();
