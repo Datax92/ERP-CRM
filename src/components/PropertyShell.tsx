@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import { SuiteSwitcher } from './SuiteSwitcher';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { signOut } from 'firebase/auth';
@@ -52,7 +53,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <svg viewBox="0 0 16 16" width={16} height={16} fill="currentColor" aria-hidden="true">{[2, 7, 12].map((y) => [2, 7, 12].map((x) => <rect key={`${x}-${y}`} x={x} y={y} width="2.4" height="2.4" rx=".5" />))}</svg>
       </Link>
       <Link href="/" className="o-nav-logo" aria-label="Home" onClick={close}><BrandMark size={24} /></Link>
-      <button className="o-nav-brand" aria-expanded={menu === 'apps'} onClick={() => toggle('apps')} title="Switch application"><span className="o-nav-brand-t">{isHome ? s.settings.companyName : group?.group || 'Trade ERP'}</span></button>
+      <button className="o-nav-brand" aria-expanded={menu === 'apps'} onClick={() => toggle('apps')} title="Switch application"><span className="o-nav-brand-t">{isHome ? (s.settings.companyName && s.settings.companyName !== 'My Company' ? s.settings.companyName : 'A & Sons Tradeway') : group?.group || 'Trade ERP'}</span></button>
+      <SuiteSwitcher active="erp" />
       {!isHome && <nav className="o-nav-menu" aria-label="Section menu">{group?.items.map((a) => <Link key={a.href} href={a.href} className={`o-nav-item ${pathname === a.href ? 'on' : ''}`} aria-current={pathname === a.href ? 'page' : undefined} onClick={close}>{a.label}</Link>)}</nav>}
       <span className="spacer" />
       <input className="navsearch" placeholder="Search…" aria-label="Search everything" value={query} onFocus={() => setMenu('search')} onChange={(e) => { setQuery(e.target.value); setMenu('search'); }} />

@@ -136,7 +136,7 @@ export const DEFAULT_LOOK: Look = {
   wallpaper: 'dots',
   icons: 'classic',
   seed: 7,
-  shortcuts: ['proforma', 'saleInvoice', 'purchaseInvoice'],
+  shortcuts: ['purchaseInvoice', 'saleInvoice', 'costSheet'],
 };
 
 export const findTheme = (id: string) => THEMES.find((t) => t.id === id);
@@ -250,6 +250,7 @@ export function loadLook(): Look {
       if (look.theme !== 'unique' && !findTheme(look.theme)) look.theme = DEFAULT_LOOK.theme;
       if (!WALLPAPERS.some((w) => w.id === look.wallpaper)) look.wallpaper = DEFAULT_LOOK.wallpaper;
       if (!ICON_PACKS.some((p) => p.id === look.icons)) look.icons = DEFAULT_LOOK.icons;
+      if (JSON.stringify(look.shortcuts) === JSON.stringify(['proforma', 'saleInvoice', 'purchaseInvoice'])) look.shortcuts = DEFAULT_LOOK.shortcuts.slice();
       if (!Array.isArray(look.shortcuts)) look.shortcuts = DEFAULT_LOOK.shortcuts.slice();
       look.shortcuts = look.shortcuts.filter((id) => SHORTCUTS.some((s) => s.id === id)).slice(0, MAX_SHORTCUTS);
       return look;
