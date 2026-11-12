@@ -29,7 +29,6 @@ import {
   Search,
   ShieldCheck,
   Ship,
-  Sparkles,
   Target,
   Trash2,
   TrendingDown,
@@ -77,7 +76,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
   const [date, setDate] = useState(today());
   const [clientId, setClientId] = useState("");
   const [supplierId, setSupplierId] = useState("");
-  const [project, setProject] = useState("A&SONS WORK");
+  const [project, setProject] = useState("");
   const [currency, setCurrency] = useState("PKR");
   const [exchangeRate, setExchangeRate] = useState<number>(1);
   const [purchaseCurrency, setPurchaseCurrency] = useState("PKR");
@@ -136,7 +135,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
     setDate(rec.date || today());
     setClientId(rec.clientId || "");
     setSupplierId(rec.supplierId || "");
-    setProject(rec.project || "A&SONS WORK");
+    setProject(rec.project || "");
     setCurrency(rec.currency || "USD");
     setExchangeRate(num(rec.exchangeRate || 278));
     setPurchaseCurrency(rec.purchaseCurrency || rec.currency || "USD");
@@ -246,7 +245,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
         date,
         clientId: clientId || undefined,
         supplierId: supplierId || undefined,
-        project: project.trim() || "A&SONS WORK",
+        project: project.trim() || "",
         currency,
         exchangeRate: num(exchangeRate),
         purchaseCurrency,
@@ -307,64 +306,6 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
     setInsuranceAmount(0); setBankChargesAmount(0); setCartageAmount(0); setInspectionAmount(0); setOtherExpensesAmount(0);
     setCommissionRecipient(''); setCommissionType('percent_sale'); setCommissionRate(0); setTaxMode('none');
     setWhtSaleRate(0); setWhtImportRate(0); setGstOutputRate(0); setGstInputRate(0); setIncomeTaxRate(0);
-  }
-
-  // Pre-load an impressive full trading sample deal
-  function handleLoadTradeSample() {
-    if (!window.confirm('Load an example as a new, unsaved sheet? Save your current changes first.')) return;
-    loadedId.current = null;
-    setActiveId(null); setClientId(''); setSupplierId(''); setError('');
-    setTitle("Import & Supply: 100 MT Kraft Paper Reels");
-    setDate(today());
-    setProject("A&SONS WORK");
-    setCurrency("USD");
-    setExchangeRate(278.25);
-    setPurchaseCurrency("USD");
-    setPurchaseExchangeRate(278.25);
-    setStatus("Costed");
-    setNotes("Direct indent import from Scandinavian mills for commercial client. Includes ocean freight to Karachi, customs duty, C&F clearance, local cartage, and buying agent commission.");
-    setItems([
-      {
-        description: "Virgin Kraft Liner Paper 125 GSM",
-        product: "Kraft Paper",
-        brand: "Mondi / Billerud",
-        supplierId: supplierId || "",
-        qty: 60,
-        unit: "Ton",
-        unitCost: 1150,
-        unitPrice: 1480,
-      },
-      {
-        description: "Semi-Chemical Fluting Medium 112 GSM",
-        product: "Fluting Medium",
-        brand: "Stora Enso",
-        supplierId: supplierId || "",
-        qty: 40,
-        unit: "Ton",
-        unitCost: 1050,
-        unitPrice: 1390,
-      },
-    ]);
-    setFreightAmount(1250000); // Sea freight 4x 40ft containers
-    setCustomsDutyAmount(1860000); // Customs tariff & RD
-    setClearingAmount(140000); // Customs clearance GD agent
-    setPortDemurrageAmount(95000); // KICT port charges
-    setInsuranceAmount(75000); // Marine insurance cover
-    setBankChargesAmount(115000); // LC opening & retirement fees
-    setCartageAmount(280000); // Port to customer warehouse cartage
-    setInspectionAmount(60000); // Pre-shipment inspection SGS
-    setOtherExpensesAmount(30000);
-
-    setCommissionRecipient("Tariq & Co. Deal Brokers");
-    setCommissionType("percent_sale");
-    setCommissionRate(1.5);
-
-    setTaxMode("wht");
-    setWhtSaleRate(4.0);
-    setWhtImportRate(0);
-    setGstOutputRate(18.0);
-    setGstInputRate(18.0);
-    setIncomeTaxRate(29.0);
   }
 
   // Convert Cost Sheet to Quotation
@@ -450,15 +391,6 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
               </select>
             )}
 
-            <button
-              type="button"
-              onClick={handleLoadTradeSample}
-              className="btn btn-ghost h-8 px-2.5 text-xs text-brass hover:bg-brass/10"
-              title="Pre-populate Scandinavian Kraft Paper import deal with full landed costs, commission, and tax calculations"
-            >
-              <Sparkles size={13} />
-              <span>Load Paper Trade Sample</span>
-            </button>
 
             <button
               type="button"
@@ -585,7 +517,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
                 className="field mt-1 text-sm font-semibold w-full"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. 50 Grundfos Pumps to WAPDA"
+                placeholder="Deal title"
               />
             </div>
 
@@ -1110,7 +1042,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
                   className="field mt-1 text-xs w-full"
                   value={commissionRecipient}
                   onChange={(e) => setCommissionRecipient(e.target.value)}
-                  placeholder="e.g. Tariq & Sons Brokerage"
+                  placeholder="Commission recipient"
                 />
               </div>
 
@@ -1494,7 +1426,7 @@ export function CostSheetWorkspace({ initialId, onOpenRecord }: CostSheetWorkspa
                   <p className="text-xs font-mono text-faint">Serial: {activeId || "DRAFT"} · Date: {fmtDate(date)}</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-bold text-ink">{project || "A&SONS WORK"}</span>
+                  <span className="text-sm font-bold text-ink">{project || ""}</span>
                   <p className="text-xs text-muted">Status: <strong className="uppercase">{status}</strong></p>
                 </div>
               </div>

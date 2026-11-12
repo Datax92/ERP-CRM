@@ -145,7 +145,7 @@ export function LoginScreen() {
                 autoComplete="username"
                 autoFocus
                 className="property-text-input"
-                placeholder="admin@propertycrm.com"
+                placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />

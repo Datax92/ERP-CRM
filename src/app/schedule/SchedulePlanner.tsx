@@ -21,7 +21,6 @@ import {
   RotateCcw,
   Save,
   Search,
-  Sparkles,
   Star,
   Target,
   Trash2,
@@ -57,7 +56,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
   // Quick Add Universal / Tab States
   const [quickTitle, setQuickTitle] = useState("");
   const [quickHorizon, setQuickHorizon] = useState<"Daily" | "Monthly" | "Yearly / Long-term">("Daily");
-  const [quickProject, setQuickProject] = useState("A&SONS WORK");
+  const [quickProject, setQuickProject] = useState("");
   const [quickTime, setQuickTime] = useState("10:00");
   const [quickCategory, setQuickCategory] = useState("Client Follow-up");
   const [quickPriority, setQuickPriority] = useState("Low");
@@ -65,7 +64,6 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
   const [quickIsGroup, setQuickIsGroup] = useState(false);
   const [quickClientId, setQuickClientId] = useState("");
   const [quickBusy, setQuickBusy] = useState(false);
-  const [seedingBusy, setSeedingBusy] = useState(false);
 
   // Table Filter States
   const [tableSearch, setTableSearch] = useState("");
@@ -189,7 +187,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
 
         // Project filter
         if (tableProject !== "All") {
-          const p = t.project || "A&SONS WORK";
+          const p = t.project || "";
           if (p !== tableProject) return false;
         }
 
@@ -212,7 +210,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
 
   // Project options for filters
   const projectOptions = useMemo(() => {
-    const set = new Set<string>(["A&SONS WORK"]);
+    const set = new Set<string>();
     allTasks.forEach((t) => {
       if (t.project) set.add(t.project);
     });
@@ -305,7 +303,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
           id: newId("schedule"),
           title,
           horizon,
-          project: quickProject.trim() || "A&SONS WORK",
+          project: quickProject.trim() || "",
           date: horizon === "Daily" ? selectedDate : horizon === "Monthly" ? `${selectedMonth}-01` : `${selectedYear}-12-31`,
           targetMonth: horizon === "Monthly" ? selectedMonth : undefined,
           targetYear: horizon === "Yearly / Long-term" ? selectedYear : undefined,
@@ -388,31 +386,6 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
       setTimeout(() => setDiarySavedStatus(false), 3000);
     } finally {
       setDiarySaving(false);
-    }
-  }
-
-  // Seed standard sample tasks (from client screenshot)
-  async function handleSeedSampleTasks() {
-    setSeedingBusy(true);
-    try {
-      const curY = selectedYear || currentYearStr;
-      const curM = selectedMonth || currentMonthStr;
-      const samples = [
-        { title: "ADVERTISEMENT", horizon: "Monthly", targetMonth: curM, date: `${curM}-01`, project: "A&SONS WORK", priority: "Low", status: "Pending", category: "Admin & Operations", isMilestone: false, isGroup: false },
-        { title: "RECEIPT RFQs", horizon: "Daily", date: selectedDate, time: "10:00", project: "A&SONS WORK", priority: "Low", status: "Pending", category: "Client Follow-up", isMilestone: false, isGroup: false },
-        { title: "CASH COUNTING MACHINE", horizon: "Monthly", targetMonth: curM, date: `${curM}-15`, project: "A&SONS WORK", priority: "Low", status: "Pending", category: "Admin & Operations", isMilestone: false, isGroup: false },
-        { title: "SUBMISSION QOUTATION", horizon: "Daily", date: selectedDate, time: "11:30", project: "A&SONS WORK", priority: "Low", status: "Pending", category: "Quotation & Pricing", isMilestone: false, isGroup: false },
-        { title: "OFFICE IN FAISAL TOWN", horizon: "Yearly / Long-term", targetYear: curY, date: `${curY}-12-31`, project: "A&SONS WORK", priority: "Low", status: "Pending", category: "Admin & Operations", isMilestone: true, isGroup: false },
-        { title: "VENDOR REGISTRATION", horizon: "Yearly / Long-term", targetYear: curY, date: `${curY}-10-31`, project: "A&SONS WORK", priority: "Low", status: "Pending", category: "Supplier Negotiation", isMilestone: true, isGroup: false },
-        { title: "WEBSITE FOR A&SONS", horizon: "Yearly / Long-term", targetYear: curY, date: `${curY}-11-30`, project: "A&SONS WORK", priority: "Low", status: "Pending", category: "Admin & Operations", isMilestone: true, isGroup: false },
-        { title: `TAX RETURN-${curY}`, horizon: "Yearly / Long-term", targetYear: curY, date: `${curY}-09-30`, project: "A&SONS WORK", priority: "Low", status: "Pending", category: "Admin & Operations", isMilestone: true, isGroup: false },
-      ];
-
-      for (const item of samples) {
-        await saveRecord("schedule", { id: newId("schedule"), ...item, notes: "" }, { serialPrefix: "TSK" });
-      }
-    } finally {
-      setSeedingBusy(false);
     }
   }
 
@@ -507,16 +480,6 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleSeedSampleTasks}
-              disabled={seedingBusy}
-              className="btn btn-ghost h-8 px-2.5 text-xs text-muted hover:text-ink"
-              title="Add standard A&SONS WORK sample tasks (Daily, Monthly, and Long-Term Milestones)"
-            >
-              <Sparkles size={13} className="text-brass" />
-              <span>{seedingBusy ? "Adding…" : "Load A&SONS Tasks"}</span>
-            </button>
 
             <button
               type="button"
@@ -650,7 +613,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
                 <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Add a daily action item (e.g. SUBMISSION QOUTATION, RECEIPT RFQs)…"
+                    placeholder="Add a daily action item…"
                     className="field flex-1 text-sm font-medium"
                     value={quickTitle}
                     onChange={(e) => setQuickTitle(e.target.value)}
@@ -868,7 +831,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
-                placeholder="Add a monthly task (e.g. ADVERTISEMENT, CASH COUNTING MACHINE, Tax filing)…"
+                placeholder="Add a monthly task…"
                 className="field flex-1 text-sm font-medium"
                 value={quickTitle}
                 onChange={(e) => setQuickTitle(e.target.value)}
@@ -1028,7 +991,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
-                placeholder="Add a long-term goal or milestone (e.g. OFFICE IN FAISAL TOWN, WEBSITE FOR A&SONS, TAX RETURN-2026)…"
+                placeholder="Add a long-term goal or milestone…"
                 className="field flex-1 text-sm font-medium"
                 value={quickTitle}
                 onChange={(e) => setQuickTitle(e.target.value)}
@@ -1136,7 +1099,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
-                placeholder="Create any task (e.g. ADVERTISEMENT, OFFICE IN FAISAL TOWN, RECEIPT RFQs)…"
+                placeholder="Create a task…"
                 className="field flex-1 text-sm font-medium min-w-[200px]"
                 value={quickTitle}
                 onChange={(e) => setQuickTitle(e.target.value)}
@@ -1372,7 +1335,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
 
                         {/* Project */}
                         <td className="px-3 py-2.5 whitespace-nowrap text-muted font-medium">
-                          {t.project || "A&SONS WORK"}
+                          {t.project || ""}
                         </td>
 
                         {/* Horizon */}
@@ -1483,7 +1446,7 @@ export function SchedulePlanner({ onOpenRecord }: SchedulePlannerProps) {
 
           <textarea
             className="field mt-4 min-h-[360px] w-full text-sm font-mono leading-relaxed"
-            placeholder="Write your daily business journal...&#10;&#10;1. Key Decisions & Agreements Made:&#10;• Verbal agreement with client on QT-0012 for delivery in 3 weeks&#10;&#10;2. Market Conditions & Foreign Exchange:&#10;• USD rate fluctuated to 276.91 PKR. Adjusted import costing accordingly.&#10;&#10;3. Shipments & Customs:&#10;• Container clearance delayed at Karachi port by 2 days.&#10;&#10;4. Tomorrow's Top Priorities:&#10;• Follow up with Shanghai supplier on shipment tracking"
+            placeholder="Write your daily business journal…"
             value={diaryNote}
             onChange={(e) => setDiaryNote(e.target.value)}
           />
@@ -1578,7 +1541,7 @@ function TaskRowItem({
 
             {/* Project Tag */}
             <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium text-muted">
-              {task.project || "A&SONS WORK"}
+              {task.project || ""}
             </span>
 
             {/* Priority Badge */}

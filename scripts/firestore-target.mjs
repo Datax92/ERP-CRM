@@ -32,4 +32,4 @@ export async function firestoreTarget(argv = process.argv.slice(2)) {
   };
 }
 
-export const COLLECTIONS = ["clients", "suppliers", "marketing", "rfqs", "quotations", "salesOrders", "purchaseOrders", "proformaInvoices", "payments", "deliveries", "companyDocs", "investors", "expenses", "financeEntries"];
+export const COLLECTIONS = ["clients", "suppliers", "marketing", "rfqs", "quotations", "salesOrders", "purchaseOrders", "proformaInvoices", "payments", "deliveries", "companyDocs", "investors", "expenses", "financeEntries", "schedule", "costSheets"];

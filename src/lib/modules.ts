@@ -714,7 +714,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     searchKeys: ["title", "project", "serial", "notes", "diaryNotes", "category", "assignedTo", "priority", "horizon"],
     defaults: () => ({
       horizon: "Daily",
-      project: "A&SONS WORK",
+      project: "",
       date: today(),
       targetMonth: today().slice(0, 7),
       targetYear: today().slice(0, 4),
@@ -754,7 +754,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "serial", label: "ID", cell: (r) => t(r.serial) },
       { key: "title", label: "Subject", cell: (r) => t(r.title) },
       { key: "status", label: "Status", cell: (r) => badge(r.status) },
-      { key: "project", label: "Project", cell: (r) => t(r.project || "A&SONS WORK") },
+      { key: "project", label: "Project", cell: (r) => t(r.project || "") },
       {
         key: "horizon",
         label: "Horizon",
@@ -853,7 +853,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       purchaseCurrency: "PKR",
       purchaseExchangeRate: 1,
       title: "",
-      project: "A&SONS WORK",
+      project: "",
       status: "Draft",
       taxMode: "wht",
       whtSaleRate: 4,

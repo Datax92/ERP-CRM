@@ -1,10 +1,8 @@
-// Fills Firestore with ~14 months of demo data so the reports and graphs have something to show.
-// Every record is tagged `demo: true`; remove them all with scripts/clear-demo.mjs.
-//   npm run seed                              → local emulator
-//   node scripts/seed-demo.mjs --project <id> → a cloud project (refuses if it already has records)
-import { COLLECTIONS, firestoreTarget } from "./firestore-target.mjs";
+// Synthetic records for emulator-based end-to-end tests only.
+import { COLLECTIONS, firestoreTarget } from "../../scripts/firestore-target.mjs";
 
-const T = await firestoreTarget();
+if (process.argv.includes("--project")) throw new Error("Test fixtures may only be loaded into the local emulator.");
+const T = await firestoreTarget([]);
 const BASE = T.base;
 const HEADERS = T.headers;
 

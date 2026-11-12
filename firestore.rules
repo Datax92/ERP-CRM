@@ -1,26 +1,34 @@
 rules_version = '2';
 
-// Single-owner system: the first signed-in account claims /meta/owner, and from then on
-// only that account can read or write anything. Disable sign-up in the Firebase console
-// (Authentication → Settings → User actions) so no one else can create an account.
+// Only administrator-provisioned members can access the shared ERP workspace.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function ownerPath() {
-      return /databases/$(database)/documents/meta/owner;
+    function isMember() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.enabled == true;
     }
-    function isOwner() {
-      return request.auth != null && exists(ownerPath()) && get(ownerPath()).data.uid == request.auth.uid;
+
+    match /members/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      // No client may create, change, list, or delete membership records.
     }
 
     match /meta/owner {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && !exists(ownerPath())
-        && request.resource.data.uid == request.auth.uid;
+      allow read: if isMember();
     }
 
-    match /{document=**} {
-      allow read, write: if isOwner();
+    match /meta/settings {
+      allow read, write: if isMember();
+    }
+
+    match /{collection}/{record} {
+      allow read, write: if collection in [
+        'clients', 'suppliers', 'marketing', 'rfqs', 'quotations',
+        'salesOrders', 'purchaseOrders', 'proformaInvoices', 'payments',
+        'deliveries', 'companyDocs', 'investors', 'expenses',
+        'financeEntries', 'schedule', 'costSheets', 'counters'
+      ] && isMember();
     }
   }
 }

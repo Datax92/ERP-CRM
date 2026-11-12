@@ -447,7 +447,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                     <label className="block text-[11px] text-muted mb-1">Agent / Broker Name</label>
                     <input
                       className="field py-1 text-xs w-full"
-                      placeholder="e.g. Tariq Broker"
+                      placeholder="Commission recipient"
                       value={commissionAgent}
                       onChange={(e) => set({ commissionAgent: e.target.value })}
                     />

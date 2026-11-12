@@ -73,12 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
     "General Note",
   ],
   taskPriorities: ["Urgent", "High", "Medium", "Low"],
-  taskProjects: [
-    "A&SONS WORK",
-    "Company Operations",
-    "Procurement & Supply",
-    "Business Development",
-  ],
+  taskProjects: [],
   taskHorizons: ["Daily", "Monthly", "Yearly / Long-term"],
   extraCostCategories: [
     "Freight & Ocean/Air Shipping",

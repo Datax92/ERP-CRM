@@ -86,7 +86,7 @@ describe("Daily Schedule & Diary module", () => {
 
     const defs = MODULES.schedule.defaults({} as any);
     expect(defs.horizon).toBe("Daily");
-    expect(defs.project).toBe("A&SONS WORK");
+    expect(defs.project).toBe("");
     expect(defs.isMilestone).toBe(false);
 
     // Verify horizon column visual tones

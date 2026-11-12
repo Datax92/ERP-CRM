@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
-import { collection, doc, getDoc, onSnapshot, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
 import { fb, isConfigured } from "@/lib/firebase";
 import { mergeSettings } from "@/lib/settings";
 import { COLLECTIONS, type CollectionName, type Rec, type Settings } from "@/lib/types";
@@ -41,16 +41,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Single-user system: the first account to sign in becomes the owner (enforced by the
-  // security rules); any other account is refused.
+  // Membership is provisioned by an administrator; clients cannot grant access.
   useEffect(() => {
     if (!user) return;
-    const ref = doc(fb().db, "meta", "owner");
+    const ref = doc(fb().db, "members", user.uid);
     let cancelled = false;
     (async () => {
       const snap = await getDoc(ref);
-      if (!snap.exists()) await setDoc(ref, { uid: user.uid, email: user.email, claimedAt: new Date().toISOString() });
-      else if (snap.data().uid !== user.uid) return !cancelled && setOwner("denied");
+      if (!snap.exists() || snap.data().enabled !== true) return !cancelled && setOwner("denied");
       if (!cancelled) setOwner("ok");
     })().catch(() => !cancelled && setError('Unable to verify account access. Check your connection and try again.'));
     return () => {
@@ -58,7 +56,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [user, retry]);
 
-  // Single-user app with modest data: keep every collection live in memory so all
+  // Shared workspace with modest data: keep every collection live in memory so all
   // screens, derived stages and reports read the same up-to-date records.
   useEffect(() => {
     if (!user || owner !== "ok") return;

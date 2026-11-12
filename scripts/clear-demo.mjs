@@ -1,4 +1,4 @@
-// Deletes every record tagged `demo: true` (written by seed-demo.mjs). Real records are untouched.
+// Deletes every record tagged `demo: true` (written by the test fixture seeder). Real records are untouched.
 //   npm run clear-demo                                  → local emulator
 //   node scripts/clear-demo.mjs --project <id> --yes    → a cloud project
 import { COLLECTIONS, firestoreTarget } from "./firestore-target.mjs";

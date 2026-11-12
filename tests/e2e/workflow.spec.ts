@@ -12,11 +12,19 @@ const SHOTS = "tests/e2e/screenshots";
 async function resetEmulator() {
   await fetch(FS, { method: "DELETE" });
   await fetch(`${AUTH}/emulator/v1/projects/demo-erp/accounts`, { method: "DELETE" });
-  await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-key`, {
+  const accountResponse = await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-key`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email: "owner@test.local", password: "test1234" }),
   });
+  const account = await accountResponse.json();
+  if (!accountResponse.ok) throw new Error("Could not create emulator test account");
+  const membership = await fetch(`http://127.0.0.1:8080/v1/projects/demo-erp/databases/(default)/documents/members/${account.localId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer owner" },
+    body: JSON.stringify({ fields: { enabled: { booleanValue: true }, email: { stringValue: "owner@test.local" } } }),
+  });
+  if (!membership.ok) throw new Error("Could not provision emulator test membership");
 }
 
 async function login(page: Page) {
@@ -182,7 +190,7 @@ const PAGES: [string, string][] = [
 
 test("every module page renders with demo data (desktop + phone)", async ({ page }) => {
   await resetEmulator();
-  execSync("node scripts/seed-demo.mjs", { stdio: "inherit" });
+  execSync("node tests/fixtures/seed-demo.mjs", { stdio: "inherit" });
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await login(page);
