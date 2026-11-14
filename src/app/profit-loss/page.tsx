@@ -25,7 +25,7 @@ export default function ProfitLossPage() {
   const lines = plLines(s, basis).filter((l) => year === "all" || l.date.startsWith(year));
   const t = sumPL(lines);
   const monthly = monthlyMeasures(
-    lines.map((l, i) => ({ id: String(i), ...l })),
+    lines,
     [
       { key: "revenue", value: (r) => r.revenue },
       { key: "cost", value: (r) => r.cost + r.opex },
@@ -107,6 +107,16 @@ export default function ProfitLossPage() {
         <YearCompare s={s} />
         <ChartCard title="Gross profit by client (PKR)" subtitle="Orders basis">
           <RankBars rows={groupSum(orders.map(({ o, i }) => ({ id: o.id, client: s.byId.clients.get(o.clientId)?.name, p: i.profitPKR })), (r) => r.client, (r) => r.p)} money />
+        </ChartCard>
+      </div>
+      <div className="mt-4">
+        <ChartCard title="Profit / loss transaction details" subtitle="Source records provide the description, quantity, costing and attachments. Edit the source to update this statement.">
+          <SimpleTable head={["Sr. no. / source", "Date", "Description", "Qty", "Income PKR", "Costing PKR", "Net PKR", "Attachments"]} empty="No transactions in this period." rows={lines.map((l) => {
+            const r = s.byId[l.col].get(l.id);
+            const income = l.revenue + l.otherIncome;
+            const cost = l.cost + l.opex + l.charity + l.zakat;
+            return [<RecordLink key={`${l.col}:${l.id}`} col={l.col} id={l.id}>{r?.serial || r?.referenceNo || r?.title || l.id}</RecordLink>, fmtDate(l.date), l.description || '—', fmtNum(l.qty), fmtNum(income), fmtNum(cost), fmtNum(income - cost), <RecordLink key="attachments" col={l.col} id={l.id}>{`${r?.attachments?.length ?? 0} attachment(s)`}</RecordLink>];
+          })} />
         </ChartCard>
       </div>
       <div className="mt-4">

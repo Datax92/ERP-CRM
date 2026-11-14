@@ -242,6 +242,12 @@ export function withTotals(rec: Rec, mode: ItemsMode | undefined, amountField?: 
   if (rec.extraCosts || rec.whtSaleRate || rec.commissions || rec.isCostSheet || rec.purchaseCurrency) {
     const analysis = computeCostSheet(out);
     Object.assign(out, analysis);
+    if (mode === "sale") {
+      out.totalCostPKR = analysis.totalPurchaseCostPKR;
+      out.marginPKR = analysis.grossProfitPKR;
+      out.margin = rateOf(out) ? analysis.grossProfitPKR / rateOf(out) : 0;
+      out.marginPct = analysis.grossMarginPct;
+    }
     if (!out.amount) out.amount = analysis.totalSale;
     if (!out.amountPKR) out.amountPKR = analysis.totalSalePKR;
   }

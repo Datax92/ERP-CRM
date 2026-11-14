@@ -20,7 +20,13 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
   const s = useStore();
   const m = MODULES[col];
   const existing = id === "new" ? undefined : s.byId[col].get(id);
-  const [data, setData] = useState<Rec>(() => existing ?? ({ id: newId(col), attachments: [], ...m.defaults(s) } as Rec));
+  const [data, setData] = useState<Rec>(() => {
+    if (existing && col === 'deliveries') {
+      const info = deliveryInfo(existing, s);
+      return { ...existing, items: info.items, currency: info.currency, exchangeRate: info.exchangeRate, costingVersion: 1 };
+    }
+    return existing ?? ({ id: newId(col), attachments: [], ...m.defaults(s) } as Rec);
+  });
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -40,8 +46,12 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
     setData((d) => ({ ...d, ...patch }));
     setDirty(true);
   };
-  const setField = (f: FieldDef, value: unknown) => set({ [f.name]: value, ...(f.autofill && value ? f.autofill(value, data, s) : {}) });
+  const setField = (f: FieldDef, value: unknown) => set({ [f.name]: value, ...(f.autofill && typeof value === 'string' && value ? f.autofill(value, data, s) : {}) });
   const itemsMode = m.itemsMode?.(data);
+  const computed = m.compute?.(data);
+  const previewAmount = m.amountField
+    ? num(computed?.[m.amountField] ?? data[m.amountField])
+    : num(data.amount ?? (num(data.qty ?? 1) * num(data.unitCost)));
 
   async function save(e?: React.FormEvent) {
     e?.preventDefault();
@@ -180,6 +190,8 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
               mode={itemsMode}
               items={data.items}
               currency={data.currency || "PKR"}
+              purchaseCurrency={data.purchaseCurrency}
+              purchaseExchangeRate={data.purchaseExchangeRate}
               exchangeRate={typeof data.exchangeRate === "number" ? data.exchangeRate : Number(data.exchangeRate) || 1}
               onRateChange={(rate) => set({ exchangeRate: rate })}
               onChange={(items) => set({ items })}
@@ -193,7 +205,7 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
         {!itemsMode && (col === "payments" || col === "expenses" || col === "financeEntries" || col === "investors" || col === "companyDocs" || data.amount != null || (m.amountField && data[m.amountField] != null)) && (
           <Section title="Total Price & Currency Converter">
             <TotalPriceConverter
-              amount={num(data.amount ?? (m.amountField ? data[m.amountField] : undefined) ?? (num(data.qty || 1) * num(data.unitCost)))}
+              amount={previewAmount}
               currency={data.currency || "PKR"}
               exchangeRate={typeof data.exchangeRate === "number" ? data.exchangeRate : Number(data.exchangeRate) || 1}
               onRateChange={(rate) => set({ exchangeRate: rate })}
@@ -379,7 +391,7 @@ function Summary({ col, r, s }: { col: CollectionName; r: Rec; s: Store }) {
     case "quotations":
       items = [
         ["Total price", fmtMoney(r.amount, r.currency)],
-        ["Total cost", fmtMoney(r.totalCost, r.currency)],
+        ["Total cost", fmtMoney(r.totalCost, r.purchaseCurrency || r.currency)],
         ["Margin", fmtMoney(r.margin, r.currency)],
         ["Margin %", fmtPct(r.marginPct)],
         ["Total in PKR", fmtMoney(r.amountPKR)],

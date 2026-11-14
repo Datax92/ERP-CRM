@@ -5,7 +5,7 @@ import { BarsChart, ChartCard, Kpis, RankBars, SimpleTable, type Kpi } from "./c
 import { Badge } from "./ui";
 import { RecordLink } from "./RecordDrawer";
 import { fmtCompact, fmtDate, fmtMoney, fmtNum, fmtPct, lateness, num, rateOf, daysFromToday } from "@/lib/calc";
-import { clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, supplierPrices, type Store } from "@/lib/derive";
+import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, supplierPrices, type Store } from "@/lib/derive";
 import { companyDocStatus, statusTone } from "@/lib/modules";
 import { groupSum, monthly, monthlyMeasures, productWise, topN } from "@/lib/report";
 import { stageKind } from "@/lib/stages";
@@ -93,10 +93,10 @@ export function pipelineReport(col: CollectionName) {
   return function PipelineReport(rows: Rec[], s: Store) {
     const valued = col !== "rfqs";
     // Margin exists wherever a selling price is known: on the document itself, or via the linked sales order.
-    const sale = col === "quotations" || col === "salesOrders" || col === "purchaseOrders" || col === "deliveries" || (col === "proformaInvoices" && rows.every((r) => r.type !== "From Supplier"));
+    const sale = valued;
     const valueOf = (r: Rec) => (col === "deliveries" ? deliveryInfo(r, s).valuePKR : pkr(r));
-    const marginOf = (r: Rec) => (col === "deliveries" ? deliveryInfo(r, s).marginPKR : col === "purchaseOrders" ? poInfo(r, s).marginPKR : num(r.marginPKR));
-    const saleValueOf = (r: Rec) => (col === "purchaseOrders" ? poInfo(r, s).salePKR : valueOf(r));
+    const marginOf = (r: Rec) => (col === "deliveries" ? deliveryInfo(r, s).marginPKR : col === "purchaseOrders" ? poInfo(r, s).marginPKR : col === "proformaInvoices" && r.type === "From Supplier" ? num(r.margin) * rateOf(r) : num(r.marginPKR));
+    const saleValueOf = (r: Rec) => (col === "purchaseOrders" ? poInfo(r, s).salePKR : col === "proformaInvoices" && r.type === "From Supplier" ? num(r.totalPrice) * rateOf(r) : valueOf(r));
     const status = (r: Rec) => (col === "proformaInvoices" ? piInfo(r, s).status : r.status);
     const outcome = (r: Rec) => (col === "proformaInvoices" ? (piInfo(r, s).status === "Paid" ? "Success" : r.status === "Cancelled" ? "Unsuccessful" : "Open") : outcomeOf(col, r.status));
     const total = rows.length;
@@ -177,8 +177,9 @@ export function pipelineReport(col: CollectionName) {
             </ChartCard>
           )}
           <ChartCard title="Comparison by client" subtitle={valued ? "Top 10 by value (PKR)" : "Top 10 by count"}>
-            <RankBars rows={groupSum(valued ? live : rows, partyOf, valued ? valueOf : undefined)} money={valued} />
+            <RankBars rows={groupSum(valued ? live : rows, (r) => clientName(s, documentClientId(r, s)), valued ? valueOf : undefined)} money={valued} />
           </ChartCard>
+          {(col === 'purchaseOrders' || col === 'proformaInvoices') && <ChartCard title="Comparison by supplier"><RankBars rows={groupSum(live.filter((r) => r.supplierId), (r) => supplierName(s, r.supplierId), valueOf)} money /></ChartCard>}
           {valued && (
             <ChartCard title="By status">
               <RankBars rows={groupSum(rows, status)} />
@@ -214,16 +215,16 @@ export function pipelineReport(col: CollectionName) {
               <RankBars rows={groupSum(rows.flatMap((r) => methodsOf(r).map((m) => ({ id: r.id, m }))), (x) => x.m)} />
             </ChartCard>
           )}
-          {valued && col !== "deliveries" && (
+          {valued && (
             <ChartCard title="Total in foreign currency / PKR">
-              <CurrencyTotals rows={live} />
+              <CurrencyTotals rows={col === "deliveries" ? live.map((r) => { const i = deliveryInfo(r, s); return { ...r, amount: i.value, amountPKR: i.valuePKR, currency: i.currency }; }) : live} />
             </ChartCard>
           )}
         </Grid>
 
         <div className="mt-4 grid grid-cols-1 gap-4">
           <ChartCard title="Product-wise" subtitle="From line items">
-            <ProductTable rows={live} showValue={sale ? "sale" : valued ? "cost" : "none"} />
+            <ProductTable rows={col === "deliveries" ? live.map((r) => { const i = deliveryInfo(r, s); return { ...r, items: i.items, currency: i.currency, exchangeRate: i.exchangeRate }; }) : live} showValue={sale ? "sale" : valued ? "cost" : "none"} />
           </ChartCard>
           {col === "salesOrders" && (
             <ChartCard title="Late deliveries" subtitle="Promised delivery date vs. delivered date">
@@ -345,7 +346,7 @@ export function clientsReport(rows: Rec[], s: Store) {
         items={[
           { label: "Clients", value: fmtNum(rows.length) },
           { label: "Registered", value: fmtNum(rows.filter((r) => r.registration === "Registered").length) },
-          { label: "Unregistered", value: fmtNum(rows.filter((r) => r.registration !== "Registered").length) },
+          { label: "Unregistered", value: fmtNum(rows.filter((r) => r.registration === "Unregistered").length) },
           { label: "Active", value: fmtNum(rows.length - inactive.length), sub: `within ${s.settings.inactiveDays} days`, tone: "good" },
           { label: "Inactive", value: fmtNum(inactive.length), tone: inactive.length ? "warn" : undefined },
           { label: "With open RFQs", value: fmtNum(rows.filter((r) => info.get(r.id)!.openRfqs > 0).length) },
@@ -402,14 +403,10 @@ export function clientsReport(rows: Rec[], s: Store) {
 export function suppliersReport(rows: Rec[], s: Store) {
   const ids = new Set(rows.map((r) => r.id));
   const prices = supplierPrices(s).filter((p) => ids.has(p.supplierId));
-  const byProduct = new Map<string, typeof prices>();
-  prices.forEach((p) => byProduct.set(p.product, [...(byProduct.get(p.product) ?? []), p]));
-  const best = [...byProduct.entries()]
-    .map(([product, ps]) => {
-      const sorted = [...ps].sort((a, b) => a.unitCostPKR - b.unitCostPKR);
-      return { product, best: sorted[0], suppliers: new Set(ps.map((p) => p.supplierId)).size, quotes: ps.length };
-    })
-    .sort((a, b) => a.product.localeCompare(b.product));
+  const best = bestSupplierPrices(s).filter((p) => ids.has(p.supplierId)).map((p) => {
+    const ps = prices.filter((x) => x.product === p.product && x.brand === p.brand);
+    return { product: priceLabel(p), best: p, suppliers: new Set(ps.map((x) => x.supplierId)).size, quotes: ps.length };
+  }).sort((a, b) => a.product.localeCompare(b.product));
   const info = new Map(rows.map((r) => [r.id, supplierInfo(r, s)]));
   return (
     <div>
@@ -443,7 +440,7 @@ export function suppliersReport(rows: Rec[], s: Store) {
         </ChartCard>
       </Grid>
       <div className="mt-4">
-        <ChartCard title="Best price by product" subtitle="Lowest unit cost (PKR) from quotation costing and purchase orders">
+        <ChartCard title="Best price by product" subtitle="Lowest current unit cost (PKR), comparing the same product and brand; tied suppliers are included">
           <SimpleTable
             head={["Product", "Best supplier", "Unit cost PKR", "Source", "Date", "Suppliers", "Price points"]}
             empty="No supplier prices yet — pick a supplier and unit cost on quotation lines or purchase orders."
@@ -460,7 +457,7 @@ export function marketingReport(rows: Rec[], s: Store) {
   const channels = topN([...weights.keys()], weights, 4);
   const split = (r: Rec) => (channels.includes(r.channel) ? r.channel : "Other");
   const clients = s.clients.map((c) => ({ c, i: clientInfo(c, s) }));
-  const positive = rows.filter((r) => /interest|request|became/i.test(r.response ?? "")).length;
+  const positive = rows.filter((r) => /^(Interested|Requested quotation|Became client)$/i.test(r.response ?? "")).length;
   return (
     <div>
       <Kpis

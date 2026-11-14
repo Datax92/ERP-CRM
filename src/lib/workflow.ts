@@ -1,4 +1,4 @@
-import { emptyItem, num, today } from "./calc";
+import { emptyItem, num, rateOf, today } from "./calc";
 import { patchRecord, saveRecord } from "./db";
 import { piInfo, poInfo, soInfo, type Store } from "./derive";
 import { MODULES } from "./modules";
@@ -154,11 +154,12 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
               ...MODULES.purchaseOrders.defaults(s),
               supplierId,
               salesOrderId: r.id,
-              currency: r.currency,
-              exchangeRate: r.exchangeRate,
+              currency: r.purchaseCurrency || r.currency,
+              exchangeRate: r.purchaseExchangeRate || r.exchangeRate,
               paymentTerms: sup?.paymentTerms ?? "",
               incoterm: r.incoterm ?? "",
-              items: copyItems(items, true),
+              items: copyItems(items, true).map((item) => ({ ...item, unitPrice: num(item.unitPrice) * rateOf(r) / rateOf({ currency: r.purchaseCurrency || r.currency, exchangeRate: r.purchaseExchangeRate || r.exchangeRate }) })),
+              ...carry(r),
             });
             if (r.status === "Open") await patchRecord("salesOrders", r.id, { status: "PO Issued" });
             return po;
@@ -173,12 +174,15 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
             id: "",
             ...MODULES.proformaInvoices.defaults(s),
             type: "To Client",
+            purchaseCurrency: r.purchaseCurrency,
+            purchaseExchangeRate: r.purchaseExchangeRate,
             clientId: r.clientId,
             salesOrderId: r.id,
             currency: r.currency,
             exchangeRate: r.exchangeRate,
             paymentTerms: r.paymentTerms ?? "",
             items: copyItems(r.items, true),
+            ...carry(r),
           }),
       });
       out.push({
@@ -194,7 +198,12 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
             incoterm: r.incoterm ?? "",
             shipmentOriginDate: info.shipmentOriginDate ?? "",
             expectedDeliveryDate: r.expectedDeliveryDate ?? "",
-            items: copyItems(r.items, false),
+            purchaseCurrency: r.purchaseCurrency,
+            purchaseExchangeRate: r.purchaseExchangeRate,
+            currency: r.currency,
+            exchangeRate: r.exchangeRate,
+            items: copyItems(r.items, true),
+            ...carry(r),
           }),
       });
       out.push({
@@ -233,6 +242,7 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
             exchangeRate: r.exchangeRate,
             paymentTerms: r.paymentTerms ?? "",
             items: copyItems(r.items, true),
+            ...carry(r),
           }),
       });
       out.push({

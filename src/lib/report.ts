@@ -1,4 +1,4 @@
-import { monthKey, num } from "./calc";
+import { monthKey, num, rateOf } from "./calc";
 import type { Rec } from "./types";
 
 /** Every month between the first and last key, so gaps show as zero rather than vanishing. */
@@ -80,14 +80,15 @@ export type ProductRow = { product: string; lines: number; qty: number; value: n
 export function productWise(rows: Rec[]): ProductRow[] {
   const m = new Map<string, ProductRow>();
   for (const r of rows) {
-    const rate = !r.currency || r.currency === "PKR" ? 1 : num(r.exchangeRate);
+    const rate = rateOf(r);
+    const costRate = r.purchaseCurrency ? rateOf({ currency: r.purchaseCurrency, exchangeRate: r.purchaseExchangeRate ?? r.exchangeRate }) : rate;
     for (const it of r.items ?? []) {
       const p = it.product || it.description || "Unspecified";
       const row = m.get(p) ?? { product: p, lines: 0, qty: 0, value: 0, cost: 0 };
       row.lines++;
       row.qty += num(it.qty);
       row.value += num(it.qty) * num(it.unitPrice) * rate;
-      row.cost += num(it.qty) * num(it.unitCost) * rate;
+      row.cost += num(it.qty) * num(it.unitCost) * costRate;
       m.set(p, row);
     }
   }

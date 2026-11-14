@@ -9,7 +9,7 @@ import { RecordDrawer } from "./RecordDrawer";
 import { CellView, Empty, PageHeader } from "./ui";
 import { fetchExchangeRates, type ExchangeRateData } from "@/lib/fx";
 import { MODULES, type ModuleConfig } from "@/lib/modules";
-import type { Store } from "@/lib/derive";
+import { deliveryInfo, type Store } from "@/lib/derive";
 import type { CollectionName, Rec } from "@/lib/types";
 
 export type FilterState = { q: string; from: string; to: string; sel: Record<string, string> };
@@ -41,6 +41,7 @@ export function applyFilters(m: ModuleConfig, rows: Rec[], f: FilterState, s: St
 }
 
 const FINANCIAL_MODULES: Record<string, boolean> = {
+  deliveries: true,
   quotations: true,
   salesOrders: true,
   purchaseOrders: true,
@@ -193,6 +194,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   }
 
   const isFinancial = FINANCIAL_MODULES[col] === true;
+  const financialRows = col === 'deliveries' ? sorted.map((r) => { const i = deliveryInfo(r, s); return { ...r, currency: i.currency, exchangeRate: i.exchangeRate, amount: i.value, amountPKR: i.valuePKR, totalCostPKR: i.costPKR, marginPKR: i.marginPKR }; }) : sorted;
 
   return (
     <div>
@@ -249,6 +251,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
           <label key={def.key} className="flex flex-col gap-1.5">
             <span className="eyebrow">{def.label}</span>
             <select
+              aria-label={def.label}
               className="field max-w-44"
               value={f.sel[def.key] ?? ""}
               onChange={(e) => setF({ ...f, sel: { ...f.sel, [def.key]: e.target.value } })}
@@ -292,7 +295,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
         <ModuleTotalBanner
           col={col}
           title={m.title}
-          rows={sorted}
+          rows={financialRows}
           targetCurrency={targetCurrency}
           onCurrencyChange={handleCurrencyChange}
           ratesData={ratesData}
@@ -371,7 +374,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
                 <ModuleTotalFooter
                   col={col}
                   columns={m.columns}
-                  rows={sorted}
+                  rows={financialRows}
                   targetCurrency={targetCurrency}
                   ratesData={ratesData}
                   rateMode={rateMode}
@@ -390,7 +393,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
           {/* Bottom compact summary bar at the end */}
           {isFinancial && (
             <ModuleTotalEndBar
-              rows={sorted}
+              rows={financialRows}
               col={col}
               targetCurrency={targetCurrency}
               onCurrencyChange={handleCurrencyChange}

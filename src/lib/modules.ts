@@ -1,5 +1,5 @@
 import { computeCostSheet, emptyItem, fmtDate, fmtMoney, fmtNum, fmtPct, num, today } from "./calc";
-import { clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type Store } from "./derive";
+import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type Store } from "./derive";
 import { STAGES } from "./stages";
 import type { CollectionName, ItemsMode, ListKey, Rec } from "./types";
 
@@ -29,7 +29,7 @@ export type FieldDef = {
   help?: string;
   showIf?: (data: Rec) => boolean;
   /** Values copied into the form when this field changes (e.g. client → region, sector). */
-  autofill?: (value: any, data: Rec, s: Store) => Partial<Rec>;
+  autofill?: (value: string, data: Rec, s: Store) => Partial<Rec>;
 };
 
 /** Cell text for tables; `tone` drives the status badge colour; `subtext` shows converted currency equivalent. */
@@ -85,7 +85,7 @@ export function statusTone(status: string): Cell["tone"] {
 }
 const badge = (v?: string): Cell => ({ text: v || "—", tone: statusTone(v || "—") });
 
-const clientName = (r: Rec, s: Store) => s.byId.clients.get(r.clientId)?.name ?? "";
+const clientName = (r: Rec, s: Store) => s.byId.clients.get(documentClientId(r, s))?.name ?? "";
 const supplierName = (r: Rec, s: Store) => s.byId.suppliers.get(r.supplierId)?.name ?? "";
 
 export function labelOf(col: CollectionName, r: Rec | undefined, s: Store): string {
@@ -192,6 +192,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       sectorFilter,
       { key: "registration", label: "Registration", options: () => ["Registered", "Unregistered", "In process"], get: (r) => r.registration ?? "" },
       { key: "lifecycle", label: "Stage", options: () => ["Lead", "Inquiry received", "Offer given", "Order received", "Delivered"], get: (r, s) => clientInfo(r, s).lifecycle },
+      ...(['rfqStage', 'quotationStage', 'poStage'] as const).map((key) => ({ key, label: key === 'rfqStage' ? 'RFQ stage' : key === 'quotationStage' ? 'Quotation stage' : 'PO stage', options: (s: Store) => [...new Set(s.clients.map((c) => clientInfo(c, s)[key]))].sort(), get: (r: Rec, s: Store) => clientInfo(r, s)[key] })),
       { key: "active", label: "Activity", options: () => ["Active", "Inactive"], get: (r, s) => (clientInfo(r, s).active ? "Active" : "Inactive") },
       { key: "paymentStage", label: "Payment", options: () => ["Unpaid", "Partially paid", "Paid", "—"], get: (r, s) => clientInfo(r, s).paymentStage },
     ],
@@ -232,6 +233,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "country", label: "Country", options: (s) => s.settings.countries, get: (r) => r.country ?? "" },
       { key: "product", label: "Product", options: (s) => s.settings.products, get: (r) => r.products ?? [] },
       { key: "brand", label: "Brand", options: (s) => s.settings.brands, get: (r) => r.brands ?? [] },
+      { key: "bestPrice", label: "Best price for product / brand", options: (s) => [...new Set(bestSupplierPrices(s).map(priceLabel))].sort(), get: (r, s) => bestSupplierPrices(s).filter((p) => p.supplierId === r.id).map(priceLabel) },
     ],
   },
 
@@ -260,8 +262,12 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "product", label: "Product", cell: (r) => t(r.product) },
       { key: "subject", label: "Subject", cell: (r) => t(r.subject) },
       { key: "response", label: "Response", cell: (r) => badge(r.response) },
+      { key: "activity", label: "Client activity", cell: (r, s) => { const c = s.byId.clients.get(r.clientId); return c ? badge(clientInfo(c, s).active ? 'Active' : 'Inactive') : t('Prospect'); } },
+      { key: "inactiveDays", label: "Inactive days", align: "right", cell: (r, s) => { const c = s.byId.clients.get(r.clientId); const days = c ? clientInfo(c, s).inactiveDays : null; return { text: days == null ? '—' : String(days), sort: days ?? -1 }; } },
     ],
     filters: [
+      clientFilter,
+      { key: "activity", label: "Client activity", options: () => ['Active', 'Inactive', 'Prospect'], get: (r, s) => { const c = s.byId.clients.get(r.clientId); return c ? (clientInfo(c, s).active ? 'Active' : 'Inactive') : 'Prospect'; } },
       { key: "channel", label: "Channel", options: (s) => s.settings.marketingChannels, get: (r) => r.channel ?? "" },
       { key: "response", label: "Response", options: (s) => s.settings.marketingResponses, get: (r) => r.response ?? "" },
       { key: "product", label: "Product", options: (s) => s.settings.products, get: (r) => r.product ?? "" },
@@ -293,7 +299,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "date", label: "Date", cell: (r) => date(r.date) },
       { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
       { key: "items", label: "Items", cell: (r) => t((r.items ?? []).map((i: Rec) => i.product || i.description).filter(Boolean).join(", ")) },
-      { key: "qty", label: "Qty", align: "right", cell: (r) => ({ text: String((r.items ?? []).reduce((a: number, i: Rec) => a + num(i.qty), 0)), sort: 0 }) },
+      { key: "qty", label: "Qty", align: "right", cell: (r) => ({ text: String((r.items ?? []).reduce((a: number, i: Rec) => a + num(i.qty), 0)), sort: (r.items ?? []).reduce((a: number, i: Rec) => a + num(i.qty), 0) }) },
       { key: "region", label: "Region", cell: (r) => t(r.region) },
       { key: "dueDate", label: "Due", cell: (r) => date(r.dueDate) },
       { key: "status", label: "Status", cell: (r) => badge(r.status) },
@@ -434,6 +440,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     ],
     filters: [
       statusFilter("purchaseOrders"),
+      clientFilter,
       { key: "supplierId", label: "Supplier", options: (s) => [...new Set(s.suppliers.map((x) => String(x.name)))].sort(), get: (r, s) => supplierName(r, s) },
       productFilter,
       { key: "vendorPayment", label: "Vendor payment", options: () => ["Unpaid", "Partially paid", "Paid"], get: (r, s) => poInfo(r, s).payment },
@@ -529,12 +536,12 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     singular: "Delivery",
     href: "/deliveries",
     prefix: "DN",
-    itemsMode: () => "basic",
+    itemsMode: () => "sale",
     searchKeys: ["serial", "deliveryNoteNo", "receivedBy", "notes"],
-    defaults: () => ({ date: today(), status: "Pending", items: [] }),
+    defaults: () => ({ ...cur(), status: "Pending", items: [], costingVersion: 1 }),
     fields: [
       { name: "date", label: "Dispatch date", type: "date", required: true },
-      { name: "salesOrderId", label: "Sales order", type: "ref", ref: "salesOrders", required: true, autofill: (id, _d, s) => { const so = s.byId.salesOrders.get(id); return so ? { clientId: so.clientId, incoterm: so.incoterm ?? "", expectedDeliveryDate: so.expectedDeliveryDate ?? "", shipmentOriginDate: so.shipmentOriginDate ?? "" } : {}; } },
+      { name: "salesOrderId", label: "Sales order", type: "ref", ref: "salesOrders", required: true, autofill: (id, _d, s) => { const so = s.byId.salesOrders.get(id); return so ? { clientId: so.clientId, currency: so.currency || "PKR", exchangeRate: so.exchangeRate ?? 1, items: (so.items ?? []).map((item: Rec) => ({ ...item })), incoterm: so.incoterm ?? "", expectedDeliveryDate: so.expectedDeliveryDate ?? "", shipmentOriginDate: so.shipmentOriginDate ?? "" } : {}; } },
       { name: "clientId", label: "Client", type: "ref", ref: "clients" },
       { name: "purchaseOrderId", label: "Purchase order (supplier)", type: "ref", ref: "purchaseOrders" },
       { name: "incoterm", label: "Incoterm", type: "select", list: "incoterms" },
@@ -544,6 +551,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { name: "orderConfirmed", label: "Order confirmation / receipt signed", type: "checkbox" },
       { name: "deliveryNoteNo", label: "Delivery note / AWB / BL no.", type: "text" },
       { name: "receivedBy", label: "Received by", type: "text" },
+      { name: "currency", label: "Currency", type: "currency" },
       statusField("deliveries"),
       { name: "items", label: "Items delivered", type: "items", wide: true },
       { name: "feedback", label: "Feedback", type: "textarea", wide: true },
@@ -554,6 +562,10 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "date", label: "Dispatched", cell: (r) => date(r.date) },
       { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
       { key: "so", label: "Sales order", cell: (r, s) => t(s.byId.salesOrders.get(r.salesOrderId)?.serial) },
+      { key: "qty", label: "Qty", align: "right", cell: (r) => ({ text: fmtNum((r.items ?? []).reduce((n: number, i: Rec) => n + num(i.qty), 0)), sort: (r.items ?? []).reduce((n: number, i: Rec) => n + num(i.qty), 0) }) },
+      { key: "total", label: "Total price", align: "right", cell: (r, s) => { const i = deliveryInfo(r, s); return money(i.value, i.currency, i.valuePKR); } },
+      { key: "cost", label: "Costing", align: "right", cell: (r, s) => money(deliveryInfo(r, s).costPKR) },
+      { key: "margin", label: "Margin", align: "right", cell: (r, s) => money(deliveryInfo(r, s).marginPKR) },
       { key: "incoterm", label: "Incoterm", cell: (r) => t(r.incoterm) },
       { key: "delivered", label: "Delivered", cell: (r) => date(r.deliveredDate) },
       { key: "late", label: "Late", align: "right", cell: (r, s) => { const l = deliveryInfo(r, s).late; return l && l.days ? { text: `${l.days}d${l.overdue ? " overdue" : ""}`, tone: "bad", sort: l.days } : { text: "—", sort: 0 }; } },
@@ -640,7 +652,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     href: "/expenses",
     prefix: "EXP",
     amountField: "amountValue",
-    compute: (d) => ({ amountValue: num(d.qty || 1) * num(d.unitCost) }),
+    compute: (d) => ({ amountValue: num(d.qty ?? 1) * num(d.unitCost) }),
     searchKeys: ["serial", "description", "paidTo", "notes"],
     defaults: () => ({ date: today(), kind: "Expense", qty: 1, currency: "PKR", exchangeRate: 1 }),
     fields: [
@@ -661,6 +673,8 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "kind", label: "Type", cell: (r) => t(r.kind) },
       { key: "category", label: "Category", cell: (r) => t(r.category) },
       { key: "description", label: "Description", cell: (r) => t(r.description) },
+      { key: "qty", label: "Qty", align: "right", cell: (r) => ({ text: fmtNum(r.qty ?? 1), sort: num(r.qty ?? 1) }) },
+      { key: "unitCost", label: "Unit cost", align: "right", cell: (r) => money(r.unitCost, r.currency) },
       { key: "amount", label: "Amount", align: "right", cell: (r) => money(r.amountValue, r.currency) },
       { key: "pkr", label: "PKR", align: "right", cell: (r) => money(r.amountPKR) },
     ],
@@ -677,7 +691,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     href: "/finance",
     prefix: "ACC",
     amountField: "amountValue",
-    compute: (d) => ({ amountValue: num(d.qty || 1) * num(d.unitCost) }),
+    compute: (d) => ({ amountValue: num(d.qty ?? 1) * num(d.unitCost) }),
     searchKeys: ["serial", "description", "notes"],
     defaults: () => ({ date: today(), direction: "Out", qty: 1, currency: "PKR", exchangeRate: 1 }),
     fields: [
@@ -697,6 +711,8 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "direction", label: "In / Out", cell: (r) => ({ text: r.direction, tone: r.direction === "In" ? "good" : "warn" }) },
       { key: "category", label: "Category", cell: (r) => t(r.category) },
       { key: "description", label: "Description", cell: (r) => t(r.description) },
+      { key: "qty", label: "Qty", align: "right", cell: (r) => ({ text: fmtNum(r.qty ?? 1), sort: num(r.qty ?? 1) }) },
+      { key: "unitCost", label: "Unit cost", align: "right", cell: (r) => money(r.unitCost, r.currency) },
       { key: "pkr", label: "PKR", align: "right", cell: (r) => money(r.amountPKR) },
     ],
     filters: [

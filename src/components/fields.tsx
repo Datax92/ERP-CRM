@@ -6,7 +6,7 @@ import { useStore } from "./DataProvider";
 import { saveSettings } from "@/lib/db";
 import { fetchRateToPKR } from "@/lib/fx";
 import { uploadAttachment } from "@/lib/storage";
-import { emptyItem, fmtNum, fmtPct, itemTotals, num } from "@/lib/calc";
+import { emptyItem, fmtNum, fmtPct, itemTotals, num, rateOf } from "@/lib/calc";
 import { labelOf } from "@/lib/modules";
 import { TotalPriceConverter } from "./TotalPriceConverter";
 import type { Attachment, CollectionName, ItemsMode, LineItem, ListKey, Rec } from "@/lib/types";
@@ -280,6 +280,8 @@ export function ItemsEditor({
   items,
   onChange,
   currency,
+  purchaseCurrency,
+  purchaseExchangeRate,
   exchangeRate,
   onRateChange,
 }: {
@@ -287,6 +289,8 @@ export function ItemsEditor({
   items: LineItem[];
   onChange: (items: LineItem[]) => void;
   currency: string;
+  purchaseCurrency?: string;
+  purchaseExchangeRate?: number;
   exchangeRate?: number;
   onRateChange?: (rate: number) => void;
 }) {
@@ -296,6 +300,12 @@ export function ItemsEditor({
   const sale = mode === "sale";
   const upd = (i: number, patch: Partial<LineItem>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const t = itemTotals(rows);
+  const costCurrency = purchaseCurrency || currency;
+  const saleRate = rateOf({ currency, exchangeRate });
+  const costRate = rateOf({ currency: costCurrency, exchangeRate: purchaseExchangeRate ?? exchangeRate });
+  const costInSaleCurrency = saleRate > 0 ? t.totalCost * costRate / saleRate : 0;
+  const margin = t.totalPrice - costInSaleCurrency;
+  const marginPct = t.totalPrice ? margin / t.totalPrice * 100 : 0;
   const suppliers = [...s.suppliers].sort((a, b) => String(a.name).localeCompare(String(b.name)));
 
   return (
@@ -311,8 +321,8 @@ export function ItemsEditor({
               {sale && <th className="px-2 py-1.5 font-medium">Supplier</th>}
               <th className="w-24 px-2 py-1.5 font-medium">Qty</th>
               <th className="w-24 px-2 py-1.5 font-medium">Unit</th>
-              {cost && <th className="w-36 px-2 py-1.5 font-medium">Unit cost</th>}
-              {sale && <th className="w-36 px-2 py-1.5 font-medium">Offered rate</th>}
+              {cost && <th className="w-36 px-2 py-1.5 font-medium">Unit cost ({costCurrency})</th>}
+              {sale && <th className="w-36 px-2 py-1.5 font-medium">Offered rate ({currency})</th>}
               {cost && <th className="px-2 py-1.5 text-right font-medium">Line total</th>}
               {sale && <th className="px-2 py-1.5 text-right font-medium">Margin %</th>}
               <th />
@@ -320,7 +330,8 @@ export function ItemsEditor({
           </thead>
           <tbody>
             {rows.map((it, i) => {
-              const lineCost = num(it.qty) * num(it.unitCost);
+              const rawLineCost = num(it.qty) * num(it.unitCost);
+              const lineCost = sale && saleRate > 0 ? rawLineCost * costRate / saleRate : rawLineCost;
               const linePrice = num(it.qty) * num(it.unitPrice);
               return (
                 <tr key={i} className="border-t border-line align-top">
@@ -403,10 +414,10 @@ export function ItemsEditor({
         </button>
         {cost && (
           <dl className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-            <Stat label="Total cost" value={`${currency} ${fmtNum(t.totalCost, 2)}`} />
+            <Stat label="Total cost" value={`${costCurrency} ${fmtNum(t.totalCost, 2)}`} />
             {sale && <Stat label="Total price" value={`${currency} ${fmtNum(t.totalPrice, 2)}`} strong />}
-            {sale && <Stat label="Margin" value={`${currency} ${fmtNum(t.margin, 2)}`} bad={t.margin < 0} />}
-            {sale && <Stat label="Margin %" value={fmtPct(t.marginPct)} bad={t.margin < 0} />}
+            {sale && <Stat label="Margin" value={`${currency} ${fmtNum(margin, 2)}`} bad={margin < 0} />}
+            {sale && <Stat label="Margin %" value={fmtPct(marginPct)} bad={margin < 0} />}
           </dl>
         )}
       </div>
@@ -417,9 +428,9 @@ export function ItemsEditor({
           currency={currency}
           exchangeRate={exchangeRate}
           onRateChange={onRateChange}
-          totalCost={t.totalCost}
-          margin={t.margin}
-          marginPct={t.marginPct}
+          totalCost={sale ? costInSaleCurrency : t.totalCost}
+          margin={margin}
+          marginPct={marginPct}
           mode={mode}
           label={sale ? "Total price" : "Total cost"}
         />

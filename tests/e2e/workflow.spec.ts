@@ -202,7 +202,7 @@ test("every module page renders with demo data (desktop + phone)", async ({ page
     await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true });
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const [url, name] of [["/", "30-phone-dashboard"], ["/quotations/", "31-phone-quotations"], ["/quotations/?tab=reports", "32-phone-quotation-report"]] as const) {
+  for (const [url, name] of [...PAGES.map(([url, name]) => [url, `phone-${name}`] as const), ["/quotations/", "31-phone-quotations"] as const]) {
     await page.goto(url);
     await expect(page.locator("main h1")).toBeVisible();
     await page.waitForTimeout(1800);

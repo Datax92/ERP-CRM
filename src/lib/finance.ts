@@ -1,5 +1,5 @@
 import { num, rateOf } from "./calc";
-import { soInfo, type Store } from "./derive";
+import { paymentLinks, soInfo, type Store } from "./derive";
 import type { CollectionName, Rec } from "./types";
 
 export type Flow = { date: string; dir: "in" | "out"; kind: string; party: string; pkr: number; col: CollectionName; id: string };
@@ -11,11 +11,12 @@ export function cashFlows(s: Store): Flow[] {
   const out: Flow[] = [];
   for (const p of s.payments) {
     const recv = p.direction === "Received";
+    const links = paymentLinks(p, s);
     out.push({
       date: p.date,
       dir: recv ? "in" : "out",
       kind: recv ? "Client receipts" : "Vendor payments",
-      party: (recv ? s.byId.clients.get(p.clientId)?.name : s.byId.suppliers.get(p.supplierId)?.name) ?? "",
+      party: (recv ? s.byId.clients.get(links.clientId)?.name : s.byId.suppliers.get(links.supplierId)?.name) ?? "",
       pkr: pkr(p),
       col: "payments",
       id: p.id,
@@ -31,7 +32,7 @@ export function cashFlows(s: Store): Flow[] {
 
 export type PLBasis = "orders" | "cash";
 
-export type PLLine = { date: string; revenue: number; cost: number; opex: number; otherIncome: number; charity: number; zakat: number };
+export type PLLine = { col: CollectionName; id: string; description: string; qty: number; date: string; revenue: number; cost: number; opex: number; otherIncome: number; charity: number; zakat: number };
 
 /**
  * Profit & loss lines.
@@ -42,23 +43,24 @@ export type PLLine = { date: string; revenue: number; cost: number; opex: number
 export function plLines(s: Store, basis: PLBasis): PLLine[] {
   const z = { revenue: 0, cost: 0, opex: 0, otherIncome: 0, charity: 0, zakat: 0 };
   const lines: PLLine[] = [];
+  const source = (col: CollectionName, r: Rec) => ({ col, id: r.id, description: r.description || r.title || r.notes || (r.items ?? []).map((i: Rec) => i.description || i.product).filter(Boolean).join(', ') || r.serial || '', qty: r.items?.length ? r.items.reduce((n: number, i: Rec) => n + num(i.qty), 0) : num(r.qty ?? 1) });
   if (basis === "orders") {
     for (const so of s.salesOrders) {
       if (so.status === "Cancelled") continue;
-      lines.push({ ...z, date: so.date, revenue: pkr(so), cost: soInfo(so, s).costPKR });
+      lines.push({ ...z, ...source("salesOrders", so), date: so.date, revenue: pkr(so), cost: soInfo(so, s).costPKR });
     }
   } else {
-    for (const p of s.payments) lines.push({ ...z, date: p.date, [p.direction === "Received" ? "revenue" : "cost"]: pkr(p) });
+    for (const p of s.payments) lines.push({ ...z, ...source("payments", p), date: p.date, [p.direction === "Received" ? "revenue" : "cost"]: pkr(p) });
   }
   for (const e of s.expenses) {
     const key = e.kind === "Charity" ? "charity" : e.kind === "Zakat" ? "zakat" : "opex";
-    lines.push({ ...z, date: e.date, [key]: pkr(e) });
+    lines.push({ ...z, ...source("expenses", e), date: e.date, [key]: pkr(e) });
   }
   for (const f of s.financeEntries) {
-    if (f.category === "Bank Charges" && f.direction === "Out") lines.push({ ...z, date: f.date, opex: pkr(f) });
-    if (f.category === "Other Income" && f.direction === "In") lines.push({ ...z, date: f.date, otherIncome: pkr(f) });
+    if (f.category === "Bank Charges" && f.direction === "Out") lines.push({ ...z, ...source("financeEntries", f), date: f.date, opex: pkr(f) });
+    if (f.category === "Other Income" && f.direction === "In") lines.push({ ...z, ...source("financeEntries", f), date: f.date, otherIncome: pkr(f) });
   }
-  for (const d of s.companyDocs) if (num(d.amountValue) && d.date) lines.push({ ...z, date: d.date, opex: pkr(d) });
+  for (const d of s.companyDocs) if (num(d.amountValue) && d.date) lines.push({ ...z, ...source("companyDocs", d), date: d.date, opex: pkr(d) });
   return lines.filter((l) => l.date);
 }
 
