@@ -69,15 +69,15 @@ export async function uploadToImgBB(file: File, apiKey: string): Promise<Attachm
   };
 }
 
-/** Tests an ImgBB API key by uploading a tiny 1x1 test image that auto-expires in 60s */
+/** Tests an ImgBB API key by uploading a small PNG test image that auto-expires in 60s */
 export async function testImgBBApiKey(apiKey: string): Promise<{ ok: boolean; message: string }> {
   const key = apiKey.trim();
   if (!key) return { ok: false, message: "Please provide an API key." };
 
   try {
     const formData = new FormData();
-    // 1x1 transparent GIF data URI / base64
-    formData.append("image", "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
+    // Use a normal PNG: ImgBB rejects the former 1x1 transparent GIF test payload.
+    formData.append("image", "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAgElEQVR4nNXOQREAIAzAsFKFSEQOshCxB9coyNrnUiZxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEidxEufvwNQDL+kCOJJlEacAAAAASUVORK5CYII=");
     formData.append("name", "connection_test");
     formData.append("expiration", "60");
 
