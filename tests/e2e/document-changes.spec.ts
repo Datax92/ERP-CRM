@@ -86,3 +86,29 @@ test('column dragging scrolls the grid to reach columns outside the viewport', a
  await page.mouse.up();await expect(table.locator('.erp-column-lifted')).toHaveCount(0);
  await page.reload();await expect(table.locator('thead [data-column-key="country"]')).toBeVisible();const order=await table.locator('thead th').evaluateAll(cells=>cells.map(el=>el.getAttribute('data-column-key')));expect(order.indexOf('country')).toBeGreaterThan(1);
 });
+
+test('contact polish shows flags and readable tags without changing export text', async({page}) => {
+ await put('clients','style-client',{name:'Tabuk Style Demo',region:'Middle East',country:'Saudi Arabia',sector:'Cement',email:'ali@tabuk.example',mobile:'+966 123 456 789',registration:'Registered',remarks:'Cement plant contact for the Saudi region'});
+ await page.goto('/clients/');await page.getByRole('textbox',{name:'Search clients',exact:true}).fill('Tabuk Style Demo');
+ const row=page.getByRole('table',{name:'Clients',exact:true}).locator('tbody tr').first();
+ await expect(row.locator('.contact-flag')).toHaveText('🇸🇦');
+ await expect(row.locator('.contact-region')).toHaveText('Middle East');await expect(row.locator('.contact-sector')).toHaveText('Cement');
+ await expect(row.getByRole('cell',{name:'Tabuk Style Demo',exact:true})).toBeAttached();
+ const email=row.getByRole('link',{name:'ali@tabuk.example',exact:true});await expect(email).toHaveAttribute('href','mailto:ali%40tabuk.example');
+ const mobile=row.getByRole('link',{name:'+966 123 456 789',exact:true});await expect(mobile).toHaveAttribute('href','tel:+966123456789');
+ await expect(row.locator('[data-column-key="remarks"]')).toHaveAttribute('title','Cement plant contact for the Saudi region');
+ const csvDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Export',exact:true}).click();const csv=await csvDownload;const fs=await import('node:fs/promises');const data=await fs.readFile((await csv.path())!,'utf8');expect(data).toContain('Saudi Arabia');expect(data).not.toContain('🇸🇦');
+ // Choose the same concise contact layout used in the client screenshot.
+ await page.getByText('Columns + / −',{exact:true}).click();const keep=['Region','Country','Sector','Company','Email','Cell / mobile','Remarks'];
+ for(const checkbox of await page.getByRole('checkbox').all()){const label=await checkbox.getAttribute('aria-label');if(label?.startsWith('Show ')&&!keep.some(name=>label===`Show ${name} column`))await checkbox.uncheck();}
+ await page.getByText('Columns + / −',{exact:true}).click();
+ await row.locator('[data-column-key="name"]').hover();
+ await page.screenshot({path:'/tmp/erp-browser-tools/contact-polish.png'});
+});
+
+
+test('country aliases use the correct flag and unknown countries use a globe', async({page}) => {
+ await put('clients','flag-uk',{name:'Flag UK Demo',country:'United Kingdom'});await put('clients','flag-unknown',{name:'Flag Unknown Demo',country:'Custom territory'});
+ await page.goto('/clients/');const search=page.getByRole('textbox',{name:'Search clients',exact:true});await search.fill('Flag UK Demo');await expect(page.locator('tbody .contact-flag')).toHaveText('🇬🇧');
+ await search.fill('Flag Unknown Demo');await expect(page.locator('tbody .contact-flag')).toHaveCount(0);await expect(page.locator('tbody .contact-country svg')).toBeVisible();
+});

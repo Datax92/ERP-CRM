@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, GripVertical, Copy, Download, Plus, Search } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { ModuleTotalBanner, ModuleTotalEndBar, ModuleTotalFooter } from "./ModuleTotalSummary";
+import { ContactCell } from "./ContactCell";
 import { useColumnDrag } from "./useColumnDrag";
 import { useTableColumns } from "./TableColumns";
 import { stageKind } from "@/lib/stages";
@@ -348,7 +349,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
         </Empty>
       ) : (
         <>
-          <div ref={viewportRef} className="card overflow-x-auto erp-column-viewport">
+          <div ref={viewportRef} className={`card overflow-x-auto erp-column-viewport ${isContact ? "erp-contact-grid" : ""}`}>
             <table ref={tableRef} onClickCapture={columnDrag.captureClick} className="erp-table erp-compact-table text-sm" style={{ tableLayout: "fixed", width: table.columns.reduce((total, c) => total + table.width(c.key), 0), minWidth: "100%" }} aria-label={m.title}>
               <thead className="border-b border-line bg-surface-2/70 text-left">
                 <tr>
@@ -396,17 +397,20 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
                     className="group cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-accent-soft/40"
                     onClick={() => openRecord(col, r.id)}
                   >
-                    {table.columns.map((c, ci) => (
+                    {table.columns.map((c, ci) => {
+                      const cell = c.cell(r, s);
+                      return (
                       <td
                         key={c.key}
                         data-column-key={c.key}
+                        title={cell.text === "—" ? undefined : cell.text}
                         className={`max-w-72 truncate px-4 py-3 first:pl-5 last:pr-5 ${
                           c.align === "right" ? "num text-right whitespace-nowrap" : ""
                         } ${ci === 0 ? "font-medium text-ink" : "text-ink/85"}`}
                       >
-                        <span className={/margin|profit/i.test(c.key) ? (Number(c.cell(r, s).sort) < 0 ? "text-bad" : Number(c.cell(r, s).sort) > 0 ? "text-good" : "") : ""}><CellView cell={c.cell(r, s)} serial={c.key === "serial"} /></span>
+                        <span className={/margin|profit/i.test(c.key) ? (Number(cell.sort) < 0 ? "text-bad" : Number(cell.sort) > 0 ? "text-good" : "") : ""}>{isContact ? <ContactCell column={c.key} cell={cell} /> : <CellView cell={cell} serial={c.key === "serial"} />}</span>
                       </td>
-                    ))}
+                    ); })}
                   </tr>
                   </Fragment>
                 ))}
