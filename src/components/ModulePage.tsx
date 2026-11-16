@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, GripVertical, Copy, Download, Plus, Search } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { ModuleTotalBanner, ModuleTotalEndBar, ModuleTotalFooter } from "./ModuleTotalSummary";
+import { countryFlag } from "@/lib/country";
 import { ContactCell } from "./ContactCell";
 import { useColumnDrag } from "./useColumnDrag";
 import { useTableColumns } from "./TableColumns";
@@ -289,7 +290,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
             >
               <option value="">All</option>
               {def.options(s).map((o) => (
-                <option key={o}>{o}</option>
+                <option key={o} value={o}>{def.key === "country" ? `${countryFlag(o) || "🌐"} ${o}` : o}</option>
               ))}
             </select>
           </label>
