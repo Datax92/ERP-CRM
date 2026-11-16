@@ -156,7 +156,8 @@ test('marketing, investor, finance and expense forms save their workbook fields'
     await expect(page.getByRole('dialog').getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
   };
   await page.goto('/marketing/?new=1');
-  await dialog.getByLabel(/Prospect name/).fill('Browser Prospect');
+  await dialog.getByRole('textbox',{name:/^Client/}).fill('Workbook');
+  await dialog.getByRole('button',{name:'Workbook Client',exact:true}).click();
   await dialog.getByLabel(/Subject \/ campaign/).fill('Browser campaign');
   await dialog.getByLabel(/^Channel/).selectOption('WhatsApp');
   await dialog.getByLabel(/^Client response/).selectOption('Interested');

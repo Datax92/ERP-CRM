@@ -6,6 +6,8 @@ import { ArrowDown, ArrowUp, GripVertical, Copy, Download, Plus, Search } from "
 import { useStore } from "./DataProvider";
 import { ModuleTotalBanner, ModuleTotalEndBar, ModuleTotalFooter } from "./ModuleTotalSummary";
 import { countryFlag } from "@/lib/country";
+import { MarketingChannels } from "./MarketingChannels";
+import { marketingChannel, type MarketingChannel } from "@/lib/marketing";
 import { ContactCell } from "./ContactCell";
 import { useColumnDrag } from "./useColumnDrag";
 import { useTableColumns } from "./TableColumns";
@@ -80,7 +82,7 @@ export function ModulePage(props: Props) {
 function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "records" }: Props) {
   const s = useStore();
   const m = MODULES[col];
-  const table = useTableColumns(col, m.columns);
+  const table = useTableColumns(col === "marketing" ? "marketing-client-contact-v2" : col, m.columns);
   const tableRef = useRef<HTMLTableElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const columnDrag = useColumnDrag(tableRef, viewportRef, table.move);
@@ -91,6 +93,8 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
+  const channelParam = params.get("channel") || "all";
+  const marketingView: MarketingChannel = ["email", "whatsapp", "call", "other"].includes(channelParam) ? channelParam as MarketingChannel : "all";
   const tab = params.get('tab') === 'reports' && report ? 'reports' : params.get('tab') === 'records' ? 'records' : defaultTab;
   const setTab = (value: 'records' | 'reports') => {
     const next = new URLSearchParams(params.toString());
@@ -164,6 +168,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   const recordUrl = (id?: string) => {
     const next = new URLSearchParams(params.toString());
     next.delete('id'); next.delete('new');
+    if (id !== 'new') next.delete('client');
     if (id) next.set(id === 'new' ? 'new' : 'id', id === 'new' ? '1' : id);
     return `${pathname}${next.size ? `?${next}` : ''}`;
   };
@@ -174,8 +179,9 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   const close = () => router.replace(recordUrl(), { scroll: false });
 
   const filtered = useMemo(() => applyFilters(m, s[col], f, s).filter(r =>
-    (col !== "rfqs" || rfqView === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === rfqView)
-  ), [m, s, col, f, rfqView]);
+    (col !== "rfqs" || rfqView === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === rfqView) &&
+    (col !== "marketing" || marketingView === "all" || marketingChannel(r.channel) === marketingView)
+  ), [m, s, col, f, rfqView, marketingView]);
   const sorted = useMemo(() => {
     const c = m.columns.find((x) => x.key === sort.key) ?? m.columns[0];
     const keyed = filtered.map((r) => {
@@ -212,6 +218,10 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
     URL.revokeObjectURL(a.href);
   }
 
+  const marketingPreset = col === "marketing" ? {
+    ...(["email", "whatsapp", "call"].includes(marketingView) ? { channel: { email: "Email", whatsapp: "WhatsApp", call: "Call" }[marketingView as "email" | "whatsapp" | "call"] } : {}),
+    ...(s.byId.clients.has(params.get("client") || "") ? { clientId: params.get("client") } : {}),
+  } : undefined;
   const isFinancial = FINANCIAL_MODULES[col] === true;
   const financialRows = col === 'deliveries' ? sorted.map((r) => { const i = deliveryInfo(r, s); return { ...r, currency: i.currency, exchangeRate: i.exchangeRate, amount: i.value, amountPKR: i.valuePKR, totalCostPKR: i.costPKR, marginPKR: i.marginPKR }; }) : sorted;
 
@@ -242,6 +252,9 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
         }
       />
 
+      {col === "marketing" && <MarketingChannels rows={s.marketing} value={marketingView} onChange={value => {
+        const next = new URLSearchParams(params.toString()); next.set("channel", value); next.delete("new"); next.delete("id"); router.replace(`${pathname}?${next}`, { scroll: false });
+      }} />}
       {copyMessage && <p role="status" className="mb-3 text-sm">{copyMessage}</p>}
       {col === "rfqs" && <div className="erp-tabs mb-3" role="tablist" aria-label="RFQ sections">
         {[["open", "Open RFQs"], ["closed", "Closed RFQs"], ["all", "All RFQs"]].map(([key, label]) => <button key={key} role="tab" aria-selected={rfqView === key} onClick={() => setRfqView(key)}>{label} ({s.rfqs.filter(r => key === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === key).length})</button>)}
@@ -279,7 +292,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
             onChange={(e) => setF({ ...f, to: e.target.value })}
           />
         </label>
-        {m.filters.map((def) => (
+        {m.filters.filter(def => col !== "marketing" || def.key !== "channel").map((def) => (
           <label key={def.key} className="flex flex-col gap-1.5">
             <span className="eyebrow">{def.label}</span>
             <select
@@ -456,6 +469,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
         <RecordDrawer
           key={`${col}-${openId}`}
           col={col}
+          initialValues={marketingPreset}
           id={openId}
           onClose={close}
           onOpen={openRecord}

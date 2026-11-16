@@ -1,4 +1,5 @@
 import { daysBetween, lateness, num, rateOf, today } from "./calc";
+import { contactDate } from "./marketing";
 import { CLIENT_LIFECYCLE, stageKind } from "./stages";
 import type { CollectionName, Rec, Settings } from "./types";
 
@@ -191,7 +192,7 @@ export function clientInfo(c: Rec, s: Store) {
   const soTotalPKR = liveSos.reduce((t, o) => t + num(o.amountPKR), 0);
   const receivedPKR = payments.reduce((t, p) => t + num(p.amount) * rateOf(p), 0);
 
-  const dates = [c.createdAt?.slice(0, 10), ...[...rfqs, ...quotes, ...sos, ...payments, ...marketing, ...deliveries].map((r) => r.date)]
+  const dates = [c.createdAt?.slice(0, 10), ...[...rfqs, ...quotes, ...sos, ...payments, ...deliveries].map((r) => r.date), ...marketing.map(contactDate)]
     .filter(Boolean)
     .sort() as string[];
   const lastActivity = dates.pop();

@@ -292,7 +292,7 @@ describe("Excel 3 · SUPPLIERS DATA", () => {
 describe("Excel 4 · MARKETING", () => {
   it("BY EMAILS / BY WHATSAPP / ADVERTISEMENT BY PRODUCT, CLIENT RESPONSE", async () => {
     await save("marketing", { date: "2026-02-02", channel: "WhatsApp", clientId: ids.client, product: "Water Pump", response: "Interested" });
-    await save("marketing", { date: "2026-02-03", channel: "Advertisement", prospectName: "Hub Power", product: "Control Valve", response: "No response" });
+    await save("marketing", { date: "2026-02-03", channel: "Advertisement", clientId: ids.client, product: "Control Valve", response: "No response" });
     await save("marketing", { date: "2026-02-04", channel: "Email", clientId: ids.idle, product: "Water Pump", response: "Requested quotation" });
     expect(filterRows("marketing", { channel: "WhatsApp" })).toHaveLength(1);
     expect(filterRows("marketing", { product: "Water Pump" })).toHaveLength(2);

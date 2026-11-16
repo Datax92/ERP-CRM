@@ -7,7 +7,8 @@ import { useStore } from "./DataProvider";
 import { Attachments, CurrencyField, ItemsEditor, ListSelect, MultiSelect, RefSelect } from "./fields";
 import { Badge, Drawer, Section } from "./ui";
 import { deleteRecord, newId, saveRecord, saveSettings } from "@/lib/db";
-import { fmtDate, fmtMoney, fmtPct, num } from "@/lib/calc";
+import { contactDate, contactDetails, latestMarketingContact, marketingChannelName, marketingStatus } from "@/lib/marketing";
+import { fmtDate, fmtMoney, fmtPct, num, today } from "@/lib/calc";
 import { clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type Store } from "@/lib/derive";
 import { MODULES, labelOf, statusTone, type FieldDef } from "@/lib/modules";
 import { conversionsFor, linkedRecords } from "@/lib/workflow";
@@ -16,7 +17,7 @@ import { TotalPriceConverter } from "./TotalPriceConverter";
 import { QuotationCostSheet } from "./QuotationCostSheet";
 import type { CollectionName, LineItem, Rec } from "@/lib/types";
 
-export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName; id: string | "new"; onClose: () => void; onOpen: (col: CollectionName, id: string) => void }) {
+export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { initialValues?: Partial<Rec>; col: CollectionName; id: string | "new"; onClose: () => void; onOpen: (col: CollectionName, id: string) => void }) {
   const s = useStore();
   const m = MODULES[col];
   const existing = id === "new" ? undefined : s.byId[col].get(id);
@@ -25,13 +26,15 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
       const info = deliveryInfo(existing, s);
       return { ...existing, items: info.items, currency: info.currency, exchangeRate: info.exchangeRate, costingVersion: 1 };
     }
-    return existing ?? ({ id: newId(col), attachments: [], ...m.defaults(s) } as Rec);
+    if (existing && col === "marketing") return { ...existing, status: marketingStatus(existing), lastContactDate: contactDate(existing), lastContactDetails: contactDetails(existing) };
+    return existing ?? ({ id: newId(col), attachments: [], ...m.defaults(s), ...initialValues } as Rec);
   });
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [activeDrawerTab, setActiveDrawerTab] = useState<"details" | "costSheet">("details");
   const isNew = !existing;
+  const fields = m.fields.map(f => col === "marketing" && !isNew && !existing?.clientId && f.name === "clientId" ? { ...f, required: false } : f);
   const close = () => { if (!busy && (!dirty || window.confirm("Discard unsaved changes?"))) onClose(); };
 
   if (id !== "new" && !existing) {
@@ -55,8 +58,10 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
 
   async function save(e?: React.FormEvent) {
     e?.preventDefault();
-    const missing = m.fields.filter((f) => f.required && (!f.showIf || f.showIf(data)) && (data[f.name] === undefined || data[f.name] === ""));
+    const missing = fields.filter((f) => f.required && (!f.showIf || f.showIf(data)) && (data[f.name] === undefined || data[f.name] === ""));
     if (missing.length) return setError(`Required: ${missing.map((f) => f.label).join(", ")}`);
+    if (col === "marketing" && ["Contacted", "Follow-up", "Closed"].includes(data.status) && (!data.lastContactDate || !String(data.lastContactDetails || '').trim())) return setError("Add the last contact date and details for this activity status.");
+    if (col === "marketing" && data.lastContactDate && data.lastContactDate > today()) return setError("Last contact date cannot be in the future.");
     setBusy(true);
     setError("");
     try {
@@ -113,6 +118,7 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
       }
     >
       {existing && <Summary col={col} r={existing} s={s} />}
+      {col === "clients" && existing && <div className="mb-4"><Link className="btn" href={`/marketing/?new=1&client=${encodeURIComponent(existing.id)}`}>Record marketing activity</Link></div>}
       {existing && <Workflow col={col} r={existing} s={s} dirty={dirty} onOpen={onOpen} />}
 
       {(col === "quotations" || col === "salesOrders" || col === "costSheets") && (
@@ -167,9 +173,16 @@ export function RecordDrawer({ col, id, onClose, onOpen }: { col: CollectionName
       )}
 
       <form id="record-form" onSubmit={save} className={(col === "quotations" || col === "salesOrders" || col === "costSheets") && activeDrawerTab === "costSheet" ? "hidden" : "block"}>
+        {col === "marketing" && data.clientId && <Section title="Selected client">
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <p><strong>{s.byId.clients.get(data.clientId)?.name || "Client no longer available"}</strong><br />{s.byId.clients.get(data.clientId)?.contactPerson || ""}</p>
+            <p>{s.byId.clients.get(data.clientId)?.email || "No email recorded"}<br />{s.byId.clients.get(data.clientId)?.whatsapp || s.byId.clients.get(data.clientId)?.mobile || s.byId.clients.get(data.clientId)?.phone || "No phone recorded"}</p>
+          </div>
+          {(() => { const last = latestMarketingContact(data, s.marketing); return last ? <p className="mt-3 text-xs text-muted">Latest contact: {fmtDate(contactDate(last))} · {marketingChannelName(last.channel)} · {contactDetails(last) || "No details recorded"}</p> : <p className="mt-3 text-xs text-muted">No previous contact recorded for this client.</p>; })()}
+        </Section>}
         <Section title="Details">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {m.fields
+            {fields
               .filter((f) => f.type !== "items" && (!f.showIf || f.showIf(data)))
               .map((f) => (
                 <label key={f.name} className={`block space-y-1 text-sm ${f.wide || f.type === "textarea" || f.type === "multiselect" ? "sm:col-span-2 lg:col-span-3" : ""}`}>

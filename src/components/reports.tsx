@@ -1,5 +1,7 @@
 "use client";
 
+import { marketingChannelName } from "@/lib/marketing";
+
 import type { ReactNode } from "react";
 import { BarsChart, ChartCard, Kpis, RankBars, SimpleTable, type Kpi } from "./charts";
 import { Badge } from "./ui";
@@ -453,6 +455,7 @@ export function suppliersReport(rows: Rec[], s: Store) {
 }
 
 export function marketingReport(rows: Rec[], s: Store) {
+  rows = rows.map(r => ({ ...r, channel: marketingChannelName(r.channel) }));
   const weights = new Map(groupSum(rows, (r) => r.channel).map((g) => [g.label, g.value]));
   const channels = topN([...weights.keys()], weights, 4);
   const split = (r: Rec) => (channels.includes(r.channel) ? r.channel : "Other");

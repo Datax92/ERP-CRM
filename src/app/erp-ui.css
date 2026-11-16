@@ -215,3 +215,21 @@ button:disabled { cursor: not-allowed; }
 .contact-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: 2px; }
 .contact-note { color: var(--ink-2); }
 .contact-empty { color: var(--ink-3); }
+
+.marketing-channel-section { margin-bottom: 16px; }
+.marketing-channel-section > p { margin-top: 8px; }
+.marketing-channel-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.marketing-channel { display: flex; align-items: center; gap: 10px; padding: 14px; min-width: 0; text-align: left; border-radius: 8px; border: 1px solid var(--rule); background: var(--card); color: var(--ink); transition: border-color .15s, box-shadow .15s; }
+.marketing-channel-email { --channel-accent: #2858A4; --channel-wash: #EDF3FF; }
+.marketing-channel-whatsapp { --channel-accent: #237A4A; --channel-wash: #EBF7EF; }
+.marketing-channel-call { --channel-accent: #9A5A12; --channel-wash: #FFF6E7; }
+.marketing-channel:hover, .marketing-channel[aria-selected="true"] { border-color: var(--channel-accent); box-shadow: inset 0 0 0 1px var(--channel-accent); }
+.marketing-channel[aria-selected="true"] { background: var(--channel-wash); }
+.marketing-channel-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 8px; background: var(--channel-wash); color: var(--channel-accent); }
+.marketing-channel-name { flex: 1; font-weight: 600; }
+.marketing-channel-name small { display: block; margin-top: 3px; color: var(--ink-2); font-size: 11px; font-weight: 400; }
+.marketing-channel strong { font-size: 24px; color: var(--channel-accent); }
+.marketing-channel-all { justify-self: start; }
+.marketing-channel-all[aria-selected="true"] { background: var(--brand); color: white; border-color: var(--brand); }
+@media (max-width: 640px) { .marketing-channel-tabs { grid-template-columns: 1fr; } .marketing-channel { padding: 10px 12px; } }
+@media (prefers-reduced-motion: reduce) { .marketing-channel { transition: none; } }

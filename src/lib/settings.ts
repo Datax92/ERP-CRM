@@ -58,7 +58,7 @@ export const DEFAULT_SETTINGS: Settings = {
   paymentMethods: ["Bank Transfer", "Cheque", "Cash", "LC", "Online", "Other"],
   incoterms: ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"],
   followUpStatuses: ["Not started", "Awaiting response", "Follow-up due", "Followed up", "Negotiating", "Closed"],
-  marketingChannels: ["Email", "WhatsApp", "Advertisement", "Phone Call", "Visit", "Exhibition", "Other"],
+  marketingChannels: ["Email", "WhatsApp", "Call", "Advertisement", "Phone Call", "Visit", "Exhibition", "Other"],
   marketingResponses: ["No response", "Interested", "Not interested", "Requested quotation", "Became client"],
   expenseCategories: ["General", "Salaries", "Rent", "Utilities", "Travel", "Freight & Customs", "Legal", "Office", "Other"],
   companyDocCategories: ["Prequalification", "Tax", "Legal", "Registration", "Certificate", "Other"],
@@ -128,5 +128,6 @@ export const LIST_LABELS: Record<ListKey, string> = {
 export function mergeSettings(stored: Partial<Settings> | undefined): Settings {
   const merged = { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
   for (const k of Object.keys(LIST_LABELS) as ListKey[]) merged[k] = [...new Set((merged[k] ?? []).map((v) => String(v).trim()).filter(Boolean))];
+  merged.marketingChannels = [...new Set(["Email", "WhatsApp", "Call", ...merged.marketingChannels])];
   return merged;
 }

@@ -1,5 +1,6 @@
 import { computeCostSheet, emptyItem, fmtDate, fmtMoney, fmtNum, fmtPct, num, today } from "./calc";
 import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type Store } from "./derive";
+import { contactDate, contactDetails, latestMarketingContact, marketingChannelName, marketingStatus, MARKETING_STATUSES } from "./marketing";
 import { STAGES } from "./stages";
 import type { CollectionName, ItemsMode, ListKey, Rec } from "./types";
 
@@ -81,7 +82,7 @@ export function statusTone(status: string): Cell["tone"] {
   if (/(won|converted|delivered|received|paid$|^paid|closed|approved|valid|active|confirmed|repaid)/.test(s) && !/partially/.test(s)) return "good";
   if (/(lost|cancel|regret|returned|rejected|expired|unpaid|overdue|late)/.test(s)) return "bad";
   if (/(partial|follow|negotiat|pending|due|expiring|costing|transit|shipped)/.test(s)) return "warn";
-  if (s === "—" || s === "draft" || s === "lead") return "muted";
+  if (s === "—" || s === "draft" || s === "lead" || s === "planned" || s === "recorded") return "muted";
   return "info";
 }
 const badge = (v?: string): Cell => ({ text: v || "—", tone: statusTone(v || "—") });
@@ -95,6 +96,8 @@ export function labelOf(col: CollectionName, r: Rec | undefined, s: Store): stri
     case "clients":
     case "suppliers":
       return r.name ?? "(unnamed)";
+    case "marketing":
+      return [clientName(r, s) || r.prospectName, r.subject || marketingChannelName(r.channel)].filter(Boolean).join(" · ");
     case "rfqs":
     case "quotations":
     case "salesOrders":
@@ -279,13 +282,16 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     title: "Marketing",
     singular: "Marketing activity",
     href: "/marketing",
-    searchKeys: ["prospectName", "subject", "notes", "product"],
-    defaults: () => ({ date: today(), channel: "Email", response: "No response" }),
+    searchKeys: ["prospectName", "subject", "notes", "product", "status", "lastContactDetails", "response"],
+    defaults: () => ({ date: today(), channel: "Email", status: "Planned", response: "No response" }),
     fields: [
-      { name: "date", label: "Date", type: "date", required: true },
+      { name: "date", label: "Activity date", type: "date", required: true },
       { name: "channel", label: "Channel", type: "select", list: "marketingChannels", required: true },
-      { name: "clientId", label: "Client", type: "ref", ref: "clients", help: "Leave empty for a prospect who is not a client yet." },
-      { name: "prospectName", label: "Prospect name", type: "text", showIf: (d) => !d.clientId },
+      { name: "clientId", label: "Client", type: "ref", ref: "clients", required: true, help: "Select the client from your client list." },
+      { name: "prospectName", label: "Legacy prospect name", type: "text", showIf: (d) => !d.clientId && !!d.prospectName },
+      { name: "status", label: "Activity status", type: "select", options: MARKETING_STATUSES, required: true },
+      { name: "lastContactDate", label: "Last contact date", type: "date" },
+      { name: "lastContactDetails", label: "Last contact details", type: "textarea", wide: true, help: "What was emailed, discussed on WhatsApp or said on the call?" },
       { name: "product", label: "Product advertised", type: "select", list: "products" },
       { name: "subject", label: "Subject / campaign", type: "text" },
       { name: "response", label: "Client response", type: "select", list: "marketingResponses" },
@@ -293,17 +299,22 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       notes,
     ],
     columns: [
-      { key: "date", label: "Date", cell: (r) => date(r.date) },
-      { key: "channel", label: "Channel", cell: (r) => t(r.channel) },
-      { key: "who", label: "Client / prospect", cell: (r, s) => t(clientName(r, s) || r.prospectName) },
+      { key: "who", label: "Client", cell: (r, s) => t(clientName(r, s) || r.prospectName) },
+      { key: "date", label: "Activity date", cell: (r) => date(r.date) },
+      { key: "status", label: "Status", cell: (r) => badge(marketingStatus(r)) },
+      { key: "lastContactDate", label: "Last contact", cell: (r,s) => { const last = latestMarketingContact(r,s.marketing); return date(last ? contactDate(last) : ''); } },
+      { key: "lastContactDetails", label: "Last contact details", cell: (r,s) => { const last = latestMarketingContact(r,s.marketing); return t(last ? [marketingChannelName(last.channel), contactDetails(last)].filter(Boolean).join(' · ') : ''); } },
+      { key: "nextFollowUpDate", label: "Next follow-up", cell: (r) => ({ ...date(r.nextFollowUpDate), tone: marketingStatus(r) !== 'Closed' && r.nextFollowUpDate && r.nextFollowUpDate <= today() ? (r.nextFollowUpDate < today() ? 'bad' : 'warn') : undefined }) },
+      { key: "response", label: "Response", cell: (r) => badge(r.response) },
+      { key: "channel", label: "Channel", cell: (r) => t(marketingChannelName(r.channel)) },
       { key: "product", label: "Product", cell: (r) => t(r.product) },
       { key: "subject", label: "Subject", cell: (r) => t(r.subject) },
-      { key: "response", label: "Response", cell: (r) => badge(r.response) },
       { key: "activity", label: "Client activity", cell: (r, s) => { const c = s.byId.clients.get(r.clientId); return c ? badge(clientInfo(c, s).active ? 'Active' : 'Inactive') : t('Prospect'); } },
       { key: "inactiveDays", label: "Inactive days", align: "right", cell: (r, s) => { const c = s.byId.clients.get(r.clientId); const days = c ? clientInfo(c, s).inactiveDays : null; return { text: days == null ? '—' : String(days), sort: days ?? -1 }; } },
     ],
     filters: [
       clientFilter,
+      { key: "status", label: "Activity status", options: () => MARKETING_STATUSES, get: marketingStatus },
       { key: "activity", label: "Client activity", options: () => ['Active', 'Inactive', 'Prospect'], get: (r, s) => { const c = s.byId.clients.get(r.clientId); return c ? (clientInfo(c, s).active ? 'Active' : 'Inactive') : 'Prospect'; } },
       { key: "channel", label: "Channel", options: (s) => s.settings.marketingChannels, get: (r) => r.channel ?? "" },
       { key: "response", label: "Response", options: (s) => s.settings.marketingResponses, get: (r) => r.response ?? "" },
