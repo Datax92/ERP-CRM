@@ -1,10 +1,11 @@
 "use client";
 
-import { Fragment, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, GripVertical, Copy, Download, Plus, Search } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { ModuleTotalBanner, ModuleTotalEndBar, ModuleTotalFooter } from "./ModuleTotalSummary";
+import { useColumnDrag } from "./useColumnDrag";
 import { useTableColumns } from "./TableColumns";
 import { stageKind } from "@/lib/stages";
 import { RecordDrawer } from "./RecordDrawer";
@@ -78,7 +79,9 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   const s = useStore();
   const m = MODULES[col];
   const table = useTableColumns(col, m.columns);
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const tableRef = useRef<HTMLTableElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const columnDrag = useColumnDrag(tableRef, viewportRef, table.move);
   const [rfqView, setRfqView] = useState("open");
   const [groupBy, setGroupBy] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
@@ -169,9 +172,8 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   const close = () => router.replace(recordUrl(), { scroll: false });
 
   const filtered = useMemo(() => applyFilters(m, s[col], f, s).filter(r =>
-    (col !== "rfqs" || rfqView === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === rfqView) &&
-    m.columns.every(c => !columnFilters[c.key] || c.cell(r, s).text.toLowerCase().includes(columnFilters[c.key].toLowerCase()))
-  ), [m, s, col, f, columnFilters, rfqView]);
+    (col !== "rfqs" || rfqView === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === rfqView)
+  ), [m, s, col, f, rfqView]);
   const sorted = useMemo(() => {
     const c = m.columns.find((x) => x.key === sort.key) ?? m.columns[0];
     const keyed = filtered.map((r) => {
@@ -190,7 +192,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   }, [filtered, sort, m, s, groupBy]);
 
   const activeFilters =
-    Object.values(columnFilters).filter(Boolean).length + Object.values(f.sel).filter(Boolean).length + (f.from ? 1 : 0) + (f.to ? 1 : 0) + (f.q ? 1 : 0);
+    Object.values(f.sel).filter(Boolean).length + (f.from ? 1 : 0) + (f.to ? 1 : 0) + (f.q ? 1 : 0);
 
   function exportCsv() {
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
@@ -292,7 +294,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
           </label>
         ))}
         {activeFilters > 0 && (
-          <button className="btn" onClick={() => { setF({ q: "", from: "", to: "", sel: {} }); setColumnFilters({}); }}>
+          <button className="btn" onClick={() => { setF({ q: "", from: "", to: "", sel: {} }); }}>
             Clear ({activeFilters})
           </button>
         )}
@@ -346,22 +348,22 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
         </Empty>
       ) : (
         <>
-          <div className="card overflow-x-auto">
-            <table className="erp-table text-sm" style={{ tableLayout: "fixed", width: table.columns.reduce((total, c) => total + table.width(c.key), 0), minWidth: "100%" }} aria-label={m.title}>
+          <div ref={viewportRef} className="card overflow-x-auto erp-column-viewport">
+            <table ref={tableRef} onClickCapture={columnDrag.captureClick} className="erp-table erp-compact-table text-sm" style={{ tableLayout: "fixed", width: table.columns.reduce((total, c) => total + table.width(c.key), 0), minWidth: "100%" }} aria-label={m.title}>
               <thead className="border-b border-line bg-surface-2/70 text-left">
                 <tr>
                   {table.columns.map((c) => (
                     <th
                       key={c.key}
                       style={{ width: table.width(c.key), position: "relative" }}
-                      onDragOver={e => e.preventDefault()}
-                      onDrop={e => { e.preventDefault(); table.move(e.dataTransfer.getData("text/erp-column"), c.key); }}
+                      data-column-key={c.key}
+                      onPointerDown={e => columnDrag.start(c.key, e)}
+                      onDragStart={e => e.preventDefault()}
                       className={`px-4 py-3 font-medium whitespace-nowrap first:pl-5 last:pr-5 ${
                         c.align === "right" ? "text-right" : ""
                       }`}
                     >
-                      <button aria-label={`Move ${c.label} column`} className="inline-flex cursor-grab text-faint" draggable
-                        onDragStart={e => e.dataTransfer.setData("text/erp-column", c.key)}
+                      <button aria-label={`Move ${c.label} column`} className="erp-column-grip inline-flex cursor-grab text-faint" title="Drag to move the whole column"
                         onKeyDown={e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); const i = table.columns.findIndex(x => x.key === c.key); const target = table.columns[i + (e.key === "ArrowLeft" ? -1 : 1)]; if (target) table.move(c.key, target.key); } }}><GripVertical size={13} /></button>
                       <button
                         className="eyebrow inline-flex items-center gap-1 hover:!text-ink"
@@ -376,7 +378,6 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
                         {sort.key === c.key &&
                           (sort.dir === 1 ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
                       </button>
-                      <input className="field mt-2 w-full text-xs" style={{ display: "block", minWidth: 0 }} aria-label={`Filter ${c.label} column`} placeholder="Filter…" value={columnFilters[c.key] || ""} onChange={e => setColumnFilters(p => ({ ...p, [c.key]: e.target.value }))} />
                       <span role="separator" aria-label={`Resize ${c.label} column`} aria-orientation="vertical" tabIndex={0} className="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none hover:bg-accent/20"
                         onKeyDown={e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); table.resize(c.key, table.width(c.key) + (e.key === "ArrowRight" ? 20 : -20)); } }}
                         onPointerDown={e => { e.preventDefault(); const start = e.clientX, width = table.width(c.key); e.currentTarget.setPointerCapture(e.pointerId); const el = e.currentTarget; const move = (ev: PointerEvent) => table.resize(c.key, width + ev.clientX - start); const end = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", end); el.removeEventListener("pointercancel", end); }; el.addEventListener("pointermove", move); el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end); }} />
@@ -398,6 +399,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
                     {table.columns.map((c, ci) => (
                       <td
                         key={c.key}
+                        data-column-key={c.key}
                         className={`max-w-72 truncate px-4 py-3 first:pl-5 last:pr-5 ${
                           c.align === "right" ? "num text-right whitespace-nowrap" : ""
                         } ${ci === 0 ? "font-medium text-ink" : "text-ink/85"}`}

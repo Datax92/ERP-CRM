@@ -26,14 +26,15 @@ test('columns hide, restore, reorder, resize and persist independently per modul
  const edge=page.getByRole('separator',{name:'Resize Company column',exact:true});await edge.focus();await edge.press('ArrowRight');
  await page.reload();await expect(table.locator('th').nth(2)).toContainText('Company');expect(await table.locator('th').nth(2).evaluate(el=>el.getBoundingClientRect().width)).toBeCloseTo(200,0);
  await page.getByText('Columns + / −',{exact:true}).click();await expect(page.getByRole('checkbox',{name:'Show Email column',exact:true})).not.toBeChecked();await page.getByRole('checkbox',{name:'Show Email column',exact:true}).check();await page.getByRole('button',{name:'Reset columns',exact:true}).click();await page.getByText('Columns + / −',{exact:true}).click();
- await page.getByRole('button',{name:'Move Company column',exact:true}).dragTo(table.locator('th').first());await expect(table.locator('th').first()).toContainText('Company');
+ const moving=(await table.locator('thead [data-column-key="name"]').boundingBox())!;const destination=(await table.locator('thead th').first().boundingBox())!;await page.mouse.move(moving.x+moving.width/2,moving.y+moving.height/2);await page.mouse.down();await page.mouse.move(destination.x+destination.width/2,destination.y+destination.height/2,{steps:12});await page.mouse.up();await expect(table.locator('th').first()).toContainText('Company');
+ await expect.poll(()=>table.evaluate(el=>el.getAnimations({subtree:true}).length)).toBe(0);
  const resize=page.getByRole('separator',{name:'Resize Company column',exact:true});const box=await resize.boundingBox();expect(box).toBeTruthy();await page.mouse.move(box!.x+box!.width/2,box!.y+box!.height/2);await page.mouse.down();await page.mouse.move(box!.x+box!.width/2+50,box!.y+box!.height/2,{steps:5});await page.mouse.up();expect(await table.locator('th').first().evaluate(el=>el.getBoundingClientRect().width)).toBeCloseTo(230,0);
- await page.goto('/suppliers/');await expect(page.getByLabel('Filter Email column')).toBeVisible();await expect(page.getByRole('cell',{name:'Factory contact',exact:true})).toBeAttached();
+ await page.goto('/suppliers/');await expect(page.getByRole('table').locator('thead input')).toHaveCount(0);await expect(page.getByRole('cell',{name:'Factory contact',exact:true})).toBeAttached();
 });
 test('RFQ sections preserve open work and unsuccessful history',async({page})=>{
  await page.goto('/rfqs/');await expect(page.getByRole('cell',{name:'DOC-open',exact:true})).toBeVisible();await expect(page.getByRole('cell',{name:'DOC-costing',exact:true})).toBeVisible();await expect(page.getByRole('cell',{name:'DOC-closed',exact:true})).toHaveCount(0);
  await page.getByRole('tab',{name:/^Closed RFQs/}).click();await expect(page.getByRole('cell',{name:'DOC-closed',exact:true})).toBeVisible();await expect(page.getByRole('cell',{name:'DOC-converted',exact:true})).toBeVisible();await expect(page.getByRole('cell',{name:'DOC-open',exact:true})).toHaveCount(0);
- await page.getByLabel('Filter RFQ no. column',{exact:true}).fill('DOC-closed');await expect(page.getByRole('cell',{name:'DOC-converted',exact:true})).toHaveCount(0);await page.getByRole('button',{name:/^Clear/}).click();await expect(page.getByRole('cell',{name:'DOC-converted',exact:true})).toBeVisible();
+ await page.getByRole('textbox',{name:'Search rfqs',exact:true}).fill('DOC-closed');await expect(page.getByRole('cell',{name:'DOC-converted',exact:true})).toHaveCount(0);await page.getByRole('button',{name:/^Clear/}).click();await expect(page.getByRole('cell',{name:'DOC-converted',exact:true})).toBeVisible();
 });
 
 test('financial total remains under its column when moved to the first position', async({page})=>{
@@ -42,4 +43,46 @@ test('financial total remains under its column when moved to the first position'
  const amountHandle=page.getByRole('button',{name:'Move Amount column',exact:true});await amountHandle.focus();for(let i=0;i<7;i++) await amountHandle.press('ArrowLeft');
  await expect(table.locator('thead th').first()).toContainText('Amount');
  await expect(table.locator('tfoot tr').last().locator('td').first()).toHaveText(/PKR 125/);
+});
+
+
+test('compact headers and animated whole column movement persist and cancel cleanly', async({page}) => {
+ await page.goto('/clients/');
+ const table=page.getByRole('table',{name:'Clients',exact:true});
+ const company=table.locator('thead [data-column-key="name"]');
+ const region=table.locator('thead [data-column-key="region"]');
+ await expect(table.locator('thead input')).toHaveCount(0);
+ expect((await company.boundingBox())!.height).toBeLessThan(55);
+ const companyEdge=page.getByRole('separator',{name:'Resize Company column',exact:true});await companyEdge.focus();await companyEdge.press('ArrowRight');await companyEdge.press('ArrowRight');
+ await expect.poll(async()=>(await company.boundingBox())!.width).toBe(220);
+ const start=(await company.boundingBox())!;const target=(await region.boundingBox())!;
+ await page.mouse.move(start.x+start.width/2,start.y+start.height/2);await page.mouse.down();
+ await page.mouse.move(target.x+target.width/2,start.y+start.height/2,{steps:12});
+ await expect(table.locator('.erp-column-lifted')).toHaveCount(3);
+ await expect.poll(async()=>await company.evaluate(el=>el.getBoundingClientRect().left)).toBeLessThan(start.x-300);
+ const xs=await table.locator('[data-column-key="name"]').evaluateAll(cells=>cells.map(el=>el.getBoundingClientRect().left));
+ expect(Math.max(...xs)-Math.min(...xs)).toBeLessThan(1);
+ await expect.poll(async()=>await region.evaluate(el=>el.getBoundingClientRect().left)).toBeGreaterThan(target.x+100);
+ await page.screenshot({path:'/tmp/erp-browser-tools/column-drag-in-progress.png'});
+ await page.mouse.up();
+ const dropped=await table.locator('[data-column-key="name"]').evaluateAll(cells=>cells.map(el=>el.getBoundingClientRect().left));expect(Math.max(...dropped)-Math.min(...dropped)).toBeLessThan(1);
+ await expect(table.locator('tbody tr').first()).toContainText('Document Cement');
+ await expect(table.locator('thead th').first()).toContainText('Company');await expect(table.locator('.erp-column-lifted')).toHaveCount(0);
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await page.reload();await expect(table.locator('thead th').first()).toContainText('Company');
+ const before=await table.locator('thead th').allTextContents();const again=(await company.boundingBox())!;
+ await page.mouse.move(again.x+again.width/2,again.y+again.height/2);await page.mouse.down();await page.mouse.move(again.x+again.width*2,again.y+again.height/2,{steps:8});
+ await expect(table.locator('.erp-column-lifted')).toHaveCount(3);await page.keyboard.press('Escape');await page.mouse.up();
+ await expect(table.locator('.erp-column-lifted')).toHaveCount(0);expect(await table.locator('thead th').allTextContents()).toEqual(before);
+ await expect.poll(()=>table.evaluate(el=>el.getAnimations({subtree:true}).length)).toBe(0);
+ await page.screenshot({path:'/tmp/erp-browser-tools/compact-client-table.png'});
+});
+
+test('column dragging scrolls the grid to reach columns outside the viewport', async({page}) => {
+ await page.goto('/clients/');const table=page.getByRole('table',{name:'Clients',exact:true});const wrap=page.locator('.erp-column-viewport');
+ const header=table.locator('thead [data-column-key="country"]');const a=(await header.boundingBox())!;const box=(await wrap.boundingBox())!;
+ await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();await page.mouse.move(box.x+box.width-8,a.y+a.height/2,{steps:10});
+ await expect.poll(()=>wrap.evaluate(el=>el.scrollLeft)).toBeGreaterThan(80);
+ await page.mouse.up();await expect(table.locator('.erp-column-lifted')).toHaveCount(0);
+ await page.reload();await expect(table.locator('thead [data-column-key="country"]')).toBeVisible();const order=await table.locator('thead th').evaluateAll(cells=>cells.map(el=>el.getAttribute('data-column-key')));expect(order.indexOf('country')).toBeGreaterThan(1);
 });

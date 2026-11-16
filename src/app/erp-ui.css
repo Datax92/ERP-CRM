@@ -183,3 +183,17 @@ button:disabled { cursor: not-allowed; }
 
 .launch-bar .btn-primary { background:var(--hl); border-color:var(--hl); color:#fff; }
 .launch-bar .btn-primary:hover { background:var(--hl-dk); }
+
+/* Compact grid, with a full column following the pointer during rearrangement. */
+.erp-compact-table thead th { cursor: grab; touch-action: pan-y; user-select: none; }
+.erp-compact-table thead th:active { cursor: grabbing; }
+.erp-compact-table th, .erp-compact-table td { height: 39px; }
+.erp-column-grip { opacity: .35; vertical-align: middle; margin-right: 3px; }
+.erp-compact-table th:hover .erp-column-grip, .erp-column-grip:focus-visible { opacity: 1; }
+.erp-column-viewport { isolation: isolate; }
+.erp-table .erp-column-moving { position: relative; will-change: transform; z-index: 1; }
+.erp-table .erp-column-lifted { z-index: 5; background: var(--card); box-shadow: 4px 0 10px rgb(0 0 0 / .1), -2px 0 5px rgb(0 0 0 / .06); }
+.erp-table thead .erp-column-lifted { background: #F1F2F4; }
+.erp-table[data-column-dragging] { user-select: none; cursor: grabbing; }
+.erp-table[data-column-dragging] tbody tr:hover { background: inherit; }
+@media (prefers-reduced-motion: reduce) { .erp-column-moving { transition: none !important; } }

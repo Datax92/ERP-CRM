@@ -34,7 +34,7 @@ export function useTableColumns(id: string, definitions: Column[]) {
   const controls = <details className="relative">
     <summary className="btn cursor-pointer">Columns + / −</summary>
     <div className="absolute left-0 z-30 mt-2 w-72 max-h-96 overflow-auto rounded-lg border border-line bg-surface p-3 shadow-xl">
-      <p className="mb-2 text-xs text-muted">Drag column handles to reorder. Drag header edges to resize. Use ← / → on a handle to move it.</p>
+      <p className="mb-2 text-xs text-muted">Drag a column header to reorder. Drag header edges to resize. Use ← / → on a handle to move it.</p>
       {ordered.map(c => <label key={c.key} className="flex gap-2 py-1 text-sm">
         <input type="checkbox" aria-label={`Show ${c.label} column`} checked={columns.some(v => v.key === c.key)} disabled={columns.length === 1 && columns[0].key === c.key}
           onChange={e => setLayout(p => ({ ...p, hidden: e.target.checked ? p.hidden.filter(k => k !== c.key) : [...p.hidden, c.key] }))} />{c.label}

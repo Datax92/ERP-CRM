@@ -396,7 +396,7 @@ export function ModuleTotalFooter({
           // Total Price / Headline Amount column
           if (c.key === "total" || (c.key === "amount" && col !== "investors")) {
             return (
-              <td key={c.key} className="num px-4 py-3 text-right font-extrabold text-ink whitespace-nowrap">
+              <td key={c.key} data-column-key={c.key} className="num px-4 py-3 text-right font-extrabold text-ink whitespace-nowrap">
                 <div className="text-sm font-bold text-accent">
                   {targetCurrency} {fmtNum(summary.total, 2)}
                 </div>
@@ -412,7 +412,7 @@ export function ModuleTotalFooter({
           // Margin amount column
           if (c.key === "margin" && summary.totalMargin != null) {
             return (
-              <td key={c.key} className={`num px-4 py-3 text-right font-bold whitespace-nowrap ${summary.totalMargin != null && summary.totalMargin < 0 ? "text-bad" : "text-good"}`}>
+              <td key={c.key} data-column-key={c.key} className={`num px-4 py-3 text-right font-bold whitespace-nowrap ${summary.totalMargin != null && summary.totalMargin < 0 ? "text-bad" : "text-good"}`}>
                 {targetCurrency} {fmtNum(summary.totalMargin, 2)}
               </td>
             );
@@ -421,7 +421,7 @@ export function ModuleTotalFooter({
           // Margin % column
           if (c.key === "marginPct" && summary.marginPct != null) {
             return (
-              <td key={c.key} className={`num px-4 py-3 text-right font-bold whitespace-nowrap ${summary.totalMargin != null && summary.totalMargin < 0 ? "text-bad" : "text-good"}`}>
+              <td key={c.key} data-column-key={c.key} className={`num px-4 py-3 text-right font-bold whitespace-nowrap ${summary.totalMargin != null && summary.totalMargin < 0 ? "text-bad" : "text-good"}`}>
                 {fmtPct(summary.marginPct)}
               </td>
             );
@@ -430,7 +430,7 @@ export function ModuleTotalFooter({
           // PKR column
           if (c.key === "pkr") {
             return (
-              <td key={c.key} className="num px-4 py-3 text-right font-bold text-ink whitespace-nowrap">
+              <td key={c.key} data-column-key={c.key} className="num px-4 py-3 text-right font-bold text-ink whitespace-nowrap">
                 PKR {fmtNum(summary.totalPKR, 0)}
               </td>
             );
@@ -439,7 +439,7 @@ export function ModuleTotalFooter({
           // RFQ / Delivery Qty column
           if (c.key === "qty" && summary.totalQty != null) {
             return (
-              <td key={c.key} className="num px-4 py-3 text-right font-bold text-ink whitespace-nowrap">
+              <td key={c.key} data-column-key={c.key} className="num px-4 py-3 text-right font-bold text-ink whitespace-nowrap">
                 {fmtNum(summary.totalQty)}
               </td>
             );
@@ -448,7 +448,7 @@ export function ModuleTotalFooter({
           // Investor amount column
           if (col === "investors" && c.key === "amount") {
             return (
-              <td key={c.key} className="num px-4 py-3 text-right font-bold text-ink whitespace-nowrap">
+              <td key={c.key} data-column-key={c.key} className="num px-4 py-3 text-right font-bold text-ink whitespace-nowrap">
                 {targetCurrency} {fmtNum(summary.total, 2)}
               </td>
             );
@@ -457,7 +457,7 @@ export function ModuleTotalFooter({
           // Payment direction / status column
           if (col === "payments" && c.key === "direction") {
             return (
-              <td key={c.key} className="px-4 py-3 text-left text-xs text-muted">
+              <td key={c.key} data-column-key={c.key} className="px-4 py-3 text-left text-xs text-muted">
                 {summary.totalReceived != null && (
                   <div>Rec: {fmtNum(summary.totalReceived, 0)}</div>
                 )}
@@ -468,7 +468,7 @@ export function ModuleTotalFooter({
             );
           }
 
-          return <td key={c.key} className="px-4 py-3" />;
+          return <td key={c.key} data-column-key={c.key} className="px-4 py-3" />;
         })}
       </tr>
     </tfoot>
