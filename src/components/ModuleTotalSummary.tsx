@@ -390,23 +390,9 @@ export function ModuleTotalFooter({
 
   return (
     <tfoot className="border-t-2 border-line bg-surface-2/90 font-medium">
+      <tr><th colSpan={columns.length} className="px-4 py-2 text-left text-xs font-medium text-muted">Total ({summary.count} entries) · {targetCurrency} · {rateMode === "realtime" ? "Live market rate" : "Saved rate"}</th></tr>
       <tr>
-        {columns.map((c, ci) => {
-          // First column: Total label and count
-          if (ci === 0) {
-            return (
-              <td key={c.key} className="px-4 py-3 pl-5 text-left font-bold text-ink">
-                <div className="flex items-center gap-1.5">
-                  <Coins size={14} className="text-accent shrink-0" />
-                  <span>Total ({summary.count} entries)</span>
-                </div>
-                <span className="block text-[11px] font-normal text-muted">
-                  in {targetCurrency} ({rateMode === "realtime" ? "Live market rate" : "Saved rate"})
-                </span>
-              </td>
-            );
-          }
-
+        {columns.map((c) => {
           // Total Price / Headline Amount column
           if (c.key === "total" || (c.key === "amount" && col !== "investors")) {
             return (
@@ -426,7 +412,7 @@ export function ModuleTotalFooter({
           // Margin amount column
           if (c.key === "margin" && summary.totalMargin != null) {
             return (
-              <td key={c.key} className="num px-4 py-3 text-right font-bold text-good whitespace-nowrap">
+              <td key={c.key} className={`num px-4 py-3 text-right font-bold whitespace-nowrap ${summary.totalMargin != null && summary.totalMargin < 0 ? "text-bad" : "text-good"}`}>
                 {targetCurrency} {fmtNum(summary.totalMargin, 2)}
               </td>
             );
@@ -435,7 +421,7 @@ export function ModuleTotalFooter({
           // Margin % column
           if (c.key === "marginPct" && summary.marginPct != null) {
             return (
-              <td key={c.key} className="num px-4 py-3 text-right font-bold text-good whitespace-nowrap">
+              <td key={c.key} className={`num px-4 py-3 text-right font-bold whitespace-nowrap ${summary.totalMargin != null && summary.totalMargin < 0 ? "text-bad" : "text-good"}`}>
                 {fmtPct(summary.marginPct)}
               </td>
             );

@@ -74,6 +74,7 @@ const date = (v?: string): Cell => ({ text: fmtDate(v) || "—", sort: v ?? "" }
 
 export function statusTone(status: string): Cell["tone"] {
   const s = status.toLowerCase();
+  if (/(unsuccess|without success|unpaid|inactive)/.test(s)) return "bad";
   if (s === "registered") return "good";
   if (s === "unregistered") return "muted";
   if (s === "in process") return "warn";
@@ -127,8 +128,9 @@ const followUpFields: FieldDef[] = [
 ];
 const notes: FieldDef = { name: "notes", label: "Notes / description", type: "textarea", wide: true };
 
-const regionFilter: FilterDef = { key: "region", label: "Region", options: (s) => s.settings.regions, get: (r) => r.region ?? "" };
-const sectorFilter: FilterDef = { key: "sector", label: "Sector", options: (s) => s.settings.sectors, get: (r) => r.sector ?? "" };
+const regionFilter: FilterDef = { key: "region", label: "Region", options: (s) => [...new Set([...s.settings.regions, ...s.clients.map(r => r.region), ...s.suppliers.map(r => r.region)].filter(Boolean))].sort(), get: (r) => r.region ?? "" };
+const countryFilter: FilterDef = { key: "country", label: "Country", options: (s) => [...new Set([...s.settings.countries, ...s.clients.map(r => r.country), ...s.suppliers.map(r => r.country)].filter(Boolean))].sort(), get: (r) => r.country ?? "" };
+const sectorFilter: FilterDef = { key: "sector", label: "Sector", options: (s) => [...new Set([...s.settings.sectors, ...s.clients.map(r => r.sector), ...s.suppliers.map(r => r.sector)].filter(Boolean))].sort(), get: (r) => r.sector ?? "" };
 const statusFilter = (col: CollectionName): FilterDef => ({ key: "status", label: "Status", options: () => STAGES[col]!.options, get: (r) => r.status ?? "" });
 const clientFilter: FilterDef = {
   key: "clientId",
@@ -151,14 +153,18 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     title: "Clients",
     singular: "Client",
     href: "/clients",
-    searchKeys: ["name", "contactPerson", "email", "phone", "mobile", "details"],
+    searchKeys: ["name", "contactPerson", "email", "phone", "mobile", "details", "jobTitle", "remarks", "address", "country", "headOffice", "plant", "whatsapp"],
     defaults: () => ({ registration: "Unregistered", country: "Pakistan" }),
     fields: [
       { name: "name", label: "Client / company name", type: "text", required: true },
+      { name: "jobTitle", label: "Job title", type: "text" },
+      { name: "headOffice", label: "Head office", type: "text" },
+      { name: "plant", label: "Plant / site", type: "text" },
+      { name: "whatsapp", label: "WhatsApp", type: "tel" },
       { name: "contactPerson", label: "Contact person", type: "text" },
       { name: "email", label: "Email", type: "email" },
       { name: "phone", label: "Telephone", type: "tel" },
-      { name: "mobile", label: "Mobile / WhatsApp", type: "tel" },
+      { name: "mobile", label: "Cell / mobile", type: "tel" },
       { name: "region", label: "Region", type: "select", list: "regions" },
       { name: "country", label: "Country", type: "select", list: "countries" },
       { name: "sector", label: "Sector", type: "select", list: "sectors" },
@@ -166,12 +172,23 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { name: "registrationNo", label: "Registration / vendor no.", type: "text", showIf: (d) => d.registration !== "Unregistered" },
       { name: "registrationDate", label: "Registration date", type: "date", showIf: (d) => d.registration === "Registered" },
       { name: "address", label: "Address", type: "textarea", wide: true },
+      { name: "remarks", label: "Remarks", type: "textarea", wide: true },
       { name: "details", label: "Client details", type: "textarea", wide: true },
     ],
     columns: [
-      { key: "name", label: "Client", cell: (r) => t(r.name) },
       { key: "region", label: "Region", cell: (r) => t(r.region) },
+      { key: "country", label: "Country", cell: (r) => t(r.country) },
       { key: "sector", label: "Sector", cell: (r) => t(r.sector) },
+      { key: "name", label: "Company", cell: (r) => t(r.name) },
+      { key: "address", label: "Address", cell: (r) => t(r.address) },
+      { key: "headOffice", label: "Head office", cell: (r) => t(r.headOffice) },
+      { key: "plant", label: "Plant / site", cell: (r) => t(r.plant) },
+      { key: "contactPerson", label: "Person", cell: (r) => t(r.contactPerson) },
+      { key: "jobTitle", label: "Job title", cell: (r) => t(r.jobTitle) },
+      { key: "email", label: "Email", cell: (r) => t(r.email) },
+      { key: "mobile", label: "Cell / mobile", cell: (r) => t(r.mobile) },
+      { key: "whatsapp", label: "WhatsApp", cell: (r) => t(r.whatsapp) },
+      { key: "phone", label: "Telephone", cell: (r) => t(r.phone) },
       { key: "registration", label: "Registration", cell: (r) => badge(r.registration) },
       { key: "lifecycle", label: "Stage", cell: (r, s) => badge(clientInfo(r, s).lifecycle) },
       { key: "rfqStage", label: "RFQ stage", cell: (r, s) => badge(clientInfo(r, s).rfqStage) },
@@ -186,9 +203,11 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
           return { text: i.lastActivity ? `${fmtDate(i.lastActivity)} (${i.inactiveDays}d)` : "—", tone: i.active ? undefined : "warn", sort: i.inactiveDays ?? 99999 };
         },
       },
+      { key: "remarks", label: "Remarks", cell: (r) => t(r.remarks || r.details) },
     ],
     filters: [
       regionFilter,
+      countryFilter,
       sectorFilter,
       { key: "registration", label: "Registration", options: () => ["Registered", "Unregistered", "In process"], get: (r) => r.registration ?? "" },
       { key: "lifecycle", label: "Stage", options: () => ["Lead", "Inquiry received", "Offer given", "Order received", "Delivered"], get: (r, s) => clientInfo(r, s).lifecycle },
@@ -203,33 +222,51 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     title: "Suppliers",
     singular: "Supplier",
     href: "/suppliers",
-    searchKeys: ["name", "contactPerson", "email", "details"],
+    searchKeys: ["name", "contactPerson", "email", "phone", "mobile", "details", "jobTitle", "remarks", "address", "country", "headOffice", "plant", "whatsapp"],
     defaults: () => ({ brands: [], products: [] }),
     fields: [
       { name: "name", label: "Supplier name", type: "text", required: true },
+      { name: "jobTitle", label: "Job title", type: "text" },
+      { name: "headOffice", label: "Head office", type: "text" },
+      { name: "plant", label: "Plant / site", type: "text" },
+      { name: "whatsapp", label: "WhatsApp", type: "tel" },
       { name: "contactPerson", label: "Contact person", type: "text" },
       { name: "email", label: "Email", type: "email" },
       { name: "phone", label: "Telephone", type: "tel" },
-      { name: "mobile", label: "Mobile / WhatsApp", type: "tel" },
+      { name: "mobile", label: "Cell / mobile", type: "tel" },
+      { name: "sector", label: "Sector", type: "select", list: "sectors" },
       { name: "region", label: "Region", type: "select", list: "regions" },
       { name: "country", label: "Country", type: "select", list: "countries" },
       { name: "paymentTerms", label: "Usual payment terms", type: "select", list: "paymentTerms" },
       { name: "brands", label: "Brands", type: "multiselect", list: "brands", wide: true },
       { name: "products", label: "Products", type: "multiselect", list: "products", wide: true },
       { name: "address", label: "Address", type: "textarea", wide: true },
+      { name: "remarks", label: "Remarks", type: "textarea", wide: true },
       { name: "details", label: "Supplier details", type: "textarea", wide: true },
     ],
     columns: [
-      { key: "name", label: "Supplier", cell: (r) => t(r.name) },
       { key: "region", label: "Region", cell: (r) => t(r.region) },
       { key: "country", label: "Country", cell: (r) => t(r.country) },
+      { key: "sector", label: "Sector", cell: (r) => t(r.sector) },
+      { key: "name", label: "Company", cell: (r) => t(r.name) },
+      { key: "address", label: "Address", cell: (r) => t(r.address) },
+      { key: "headOffice", label: "Head office", cell: (r) => t(r.headOffice) },
+      { key: "plant", label: "Plant / site", cell: (r) => t(r.plant) },
+      { key: "contactPerson", label: "Person", cell: (r) => t(r.contactPerson) },
+      { key: "jobTitle", label: "Job title", cell: (r) => t(r.jobTitle) },
+      { key: "email", label: "Email", cell: (r) => t(r.email) },
+      { key: "mobile", label: "Cell / mobile", cell: (r) => t(r.mobile) },
+      { key: "whatsapp", label: "WhatsApp", cell: (r) => t(r.whatsapp) },
+      { key: "phone", label: "Telephone", cell: (r) => t(r.phone) },
       { key: "brands", label: "Brands", cell: (r) => t((r.brands ?? []).join(", ")) },
       { key: "products", label: "Products", cell: (r) => t((r.products ?? []).join(", ")) },
       { key: "purchased", label: "Purchased", align: "right", cell: (r, s) => money(supplierInfo(r, s).purchasedPKR) },
       { key: "payable", label: "Payable", align: "right", cell: (r, s) => money(supplierInfo(r, s).payablePKR) },
+      { key: "remarks", label: "Remarks", cell: (r) => t(r.remarks || r.details) },
     ],
     filters: [
       regionFilter,
+      sectorFilter,
       { key: "country", label: "Country", options: (s) => s.settings.countries, get: (r) => r.country ?? "" },
       { key: "product", label: "Product", options: (s) => s.settings.products, get: (r) => r.products ?? [] },
       { key: "brand", label: "Brand", options: (s) => s.settings.brands, get: (r) => r.brands ?? [] },

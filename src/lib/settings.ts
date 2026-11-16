@@ -6,6 +6,7 @@ export const DEFAULT_SETTINGS: Settings = {
   inactiveDays: 90,
   imgbbApiKey: "",
   regions: [
+    "Gulf", "Asia",
     "Punjab",
     "Sindh",
     "Khyber Pakhtunkhwa",
@@ -21,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
     "Africa",
   ],
   countries: [
+    "Oman", "Bangladesh", "Sri Lanka", "South Africa", "Ghana", "Nigeria",
     "Pakistan",
     "China",
     "United Arab Emirates",
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
     "South Korea",
   ],
   sectors: [
+    "Cement",
     "Oil & Gas",
     "Power & Energy",
     "Water & Sanitation",

@@ -1,10 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, Download, Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Copy, Download, Plus, Search } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { ModuleTotalBanner, ModuleTotalEndBar, ModuleTotalFooter } from "./ModuleTotalSummary";
+import { useTableColumns } from "./TableColumns";
+import { stageKind } from "@/lib/stages";
 import { RecordDrawer } from "./RecordDrawer";
 import { CellView, Empty, PageHeader } from "./ui";
 import { fetchExchangeRates, type ExchangeRateData } from "@/lib/fx";
@@ -40,6 +42,8 @@ export function applyFilters(m: ModuleConfig, rows: Rec[], f: FilterState, s: St
   });
 }
 
+const contactGroup = (r: Rec, key: string) => key === "hierarchy" ? [r.region, r.country, r.sector].map(x => x || "Unspecified").join(" / ") : String(r[key] || "Unspecified");
+
 const FINANCIAL_MODULES: Record<string, boolean> = {
   deliveries: true,
   quotations: true,
@@ -65,7 +69,7 @@ type Props = {
 export function ModulePage(props: Props) {
   return (
     <Suspense fallback={<div className="text-sm text-muted">Loading…</div>}>
-      <ModulePageInner {...props} />
+      <ModulePageInner key={props.col} {...props} />
     </Suspense>
   );
 }
@@ -73,6 +77,12 @@ export function ModulePage(props: Props) {
 function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "records" }: Props) {
   const s = useStore();
   const m = MODULES[col];
+  const table = useTableColumns(col, m.columns);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [rfqView, setRfqView] = useState("open");
+  const [groupBy, setGroupBy] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
+  const isContact = col === "clients" || col === "suppliers";
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -158,7 +168,10 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
   };
   const close = () => router.replace(recordUrl(), { scroll: false });
 
-  const filtered = useMemo(() => applyFilters(m, s[col], f, s), [m, s, col, f]);
+  const filtered = useMemo(() => applyFilters(m, s[col], f, s).filter(r =>
+    (col !== "rfqs" || rfqView === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === rfqView) &&
+    m.columns.every(c => !columnFilters[c.key] || c.cell(r, s).text.toLowerCase().includes(columnFilters[c.key].toLowerCase()))
+  ), [m, s, col, f, columnFilters, rfqView]);
   const sorted = useMemo(() => {
     const c = m.columns.find((x) => x.key === sort.key) ?? m.columns[0];
     const keyed = filtered.map((r) => {
@@ -171,17 +184,19 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
           ? a.k - b.k
           : String(a.k).localeCompare(String(b.k))) * sort.dir
     );
-    return keyed.map((x) => x.r);
-  }, [filtered, sort, m, s]);
+    const result = keyed.map((x) => x.r);
+    if (groupBy) result.sort((a, b) => contactGroup(a, groupBy).localeCompare(contactGroup(b, groupBy)));
+    return result;
+  }, [filtered, sort, m, s, groupBy]);
 
   const activeFilters =
-    Object.values(f.sel).filter(Boolean).length + (f.from ? 1 : 0) + (f.to ? 1 : 0) + (f.q ? 1 : 0);
+    Object.values(columnFilters).filter(Boolean).length + Object.values(f.sel).filter(Boolean).length + (f.from ? 1 : 0) + (f.to ? 1 : 0) + (f.q ? 1 : 0);
 
   function exportCsv() {
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
     const lines = [
-      m.columns.map((c) => esc(c.label)).join(","),
-      ...sorted.map((r) => m.columns.map((c) => esc(c.cell(r, s).text)).join(",")),
+      table.columns.map((c) => esc(c.label)).join(","),
+      ...sorted.map((r) => table.columns.map((c) => esc(c.cell(r, s).text)).join(",")),
     ];
     const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a");
@@ -204,6 +219,12 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
         actions={
           <>
             {extraActions}
+            {table.controls}
+            {isContact && <button className="btn" disabled={!sorted.some(r => r.email)} onClick={async () => {
+              const emails = [...new Set(sorted.flatMap(r => String(r.email || "").split(/[;,\s]+/)).map(x => x.trim()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))];
+              try { await navigator.clipboard.writeText(emails.join("; ")); setCopyMessage(`All ${emails.length} email addresses have been copied.`); }
+              catch { setCopyMessage("Could not access clipboard. Allow clipboard access and try again."); }
+            }}><Copy size={14} /> Copy all emails</button>}
             <button className="btn" onClick={exportCsv} disabled={!sorted.length}>
               <Download size={14} /> Export
             </button>
@@ -217,6 +238,13 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
         }
       />
 
+      {copyMessage && <p role="status" className="mb-3 text-sm">{copyMessage}</p>}
+      {col === "rfqs" && <div className="erp-tabs mb-3" role="tablist" aria-label="RFQ sections">
+        {[["open", "Open RFQs"], ["closed", "Closed RFQs"], ["all", "All RFQs"]].map(([key, label]) => <button key={key} role="tab" aria-selected={rfqView === key} onClick={() => setRfqView(key)}>{label} ({s.rfqs.filter(r => key === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === key).length})</button>)}
+      </div>}
+      {isContact && <label className="mb-3 flex items-center gap-2 text-sm">Group contacts by
+        <select className="field" value={groupBy} onChange={e => setGroupBy(e.target.value)}><option value="">No grouping</option><option value="hierarchy">Region → Country → Sector</option><option value="region">Region</option><option value="country">Country</option><option value="sector">Sector</option></select>
+      </label>}
       {/* Filters: one row above both the table and the reports */}
       <div className="erp-filters card flex flex-wrap items-end">
         <label className="relative min-w-48 flex-1">
@@ -264,7 +292,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
           </label>
         ))}
         {activeFilters > 0 && (
-          <button className="btn" onClick={() => setF({ q: "", from: "", to: "", sel: {} })}>
+          <button className="btn" onClick={() => { setF({ q: "", from: "", to: "", sel: {} }); setColumnFilters({}); }}>
             Clear ({activeFilters})
           </button>
         )}
@@ -319,16 +347,22 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
       ) : (
         <>
           <div className="card overflow-x-auto">
-            <table className="erp-table w-full text-sm" aria-label={m.title}>
+            <table className="erp-table text-sm" style={{ tableLayout: "fixed", width: table.columns.reduce((total, c) => total + table.width(c.key), 0), minWidth: "100%" }} aria-label={m.title}>
               <thead className="border-b border-line bg-surface-2/70 text-left">
                 <tr>
-                  {m.columns.map((c) => (
+                  {table.columns.map((c) => (
                     <th
                       key={c.key}
+                      style={{ width: table.width(c.key), position: "relative" }}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => { e.preventDefault(); table.move(e.dataTransfer.getData("text/erp-column"), c.key); }}
                       className={`px-4 py-3 font-medium whitespace-nowrap first:pl-5 last:pr-5 ${
                         c.align === "right" ? "text-right" : ""
                       }`}
                     >
+                      <button aria-label={`Move ${c.label} column`} className="inline-flex cursor-grab text-faint" draggable
+                        onDragStart={e => e.dataTransfer.setData("text/erp-column", c.key)}
+                        onKeyDown={e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); const i = table.columns.findIndex(x => x.key === c.key); const target = table.columns[i + (e.key === "ArrowLeft" ? -1 : 1)]; if (target) table.move(c.key, target.key); } }}><GripVertical size={13} /></button>
                       <button
                         className="eyebrow inline-flex items-center gap-1 hover:!text-ink"
                         onClick={() =>
@@ -342,12 +376,18 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
                         {sort.key === c.key &&
                           (sort.dir === 1 ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
                       </button>
+                      <input className="field mt-2 w-full text-xs" style={{ display: "block", minWidth: 0 }} aria-label={`Filter ${c.label} column`} placeholder="Filter…" value={columnFilters[c.key] || ""} onChange={e => setColumnFilters(p => ({ ...p, [c.key]: e.target.value }))} />
+                      <span role="separator" aria-label={`Resize ${c.label} column`} aria-orientation="vertical" tabIndex={0} className="absolute right-0 top-0 h-full w-2 cursor-col-resize touch-none hover:bg-accent/20"
+                        onKeyDown={e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); table.resize(c.key, table.width(c.key) + (e.key === "ArrowRight" ? 20 : -20)); } }}
+                        onPointerDown={e => { e.preventDefault(); const start = e.clientX, width = table.width(c.key); e.currentTarget.setPointerCapture(e.pointerId); const el = e.currentTarget; const move = (ev: PointerEvent) => table.resize(c.key, width + ev.clientX - start); const end = () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", end); el.removeEventListener("pointercancel", end); }; el.addEventListener("pointermove", move); el.addEventListener("pointerup", end); el.addEventListener("pointercancel", end); }} />
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {sorted.slice(0, limit).map((r) => (
+                {sorted.slice(0, limit).map((r, index) => (
+                  <Fragment key={r.id}>
+                  {groupBy && (index === 0 || contactGroup(sorted[index - 1], groupBy) !== contactGroup(r, groupBy)) && <tr className="bg-surface-2"><th scope="rowgroup" colSpan={table.columns.length} className="px-4 py-2 text-left text-xs font-semibold">{contactGroup(r, groupBy)}</th></tr>}
                   <tr
                     key={r.id}
                     tabIndex={0}
@@ -355,17 +395,18 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
                     className="group cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-accent-soft/40"
                     onClick={() => openRecord(col, r.id)}
                   >
-                    {m.columns.map((c, ci) => (
+                    {table.columns.map((c, ci) => (
                       <td
                         key={c.key}
                         className={`max-w-72 truncate px-4 py-3 first:pl-5 last:pr-5 ${
                           c.align === "right" ? "num text-right whitespace-nowrap" : ""
                         } ${ci === 0 ? "font-medium text-ink" : "text-ink/85"}`}
                       >
-                        <CellView cell={c.cell(r, s)} serial={c.key === "serial"} />
+                        <span className={/margin|profit/i.test(c.key) ? (Number(c.cell(r, s).sort) < 0 ? "text-bad" : Number(c.cell(r, s).sort) > 0 ? "text-good" : "") : ""}><CellView cell={c.cell(r, s)} serial={c.key === "serial"} /></span>
                       </td>
                     ))}
                   </tr>
+                  </Fragment>
                 ))}
               </tbody>
 
@@ -373,7 +414,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
               {isFinancial && (
                 <ModuleTotalFooter
                   col={col}
-                  columns={m.columns}
+                  columns={table.columns}
                   rows={financialRows}
                   targetCurrency={targetCurrency}
                   ratesData={ratesData}

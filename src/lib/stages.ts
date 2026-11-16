@@ -8,10 +8,10 @@ export type StageDef = { options: string[]; open: string[]; won: string[]; lost:
 
 export const STAGES: Partial<Record<CollectionName, StageDef>> = {
   rfqs: {
-    options: ["Open", "Costing", "Converted", "Regretted", "Lost", "Cancelled"],
+    options: ["Open", "Costing", "Converted", "Close without Success", "Regretted", "Lost", "Cancelled"],
     open: ["Open", "Costing"],
     won: ["Converted"],
-    lost: ["Regretted", "Lost", "Cancelled"],
+    lost: ["Close without Success", "Regretted", "Lost", "Cancelled"],
   },
   quotations: {
     options: ["Draft", "Sent", "Follow-up", "Negotiation", "Won", "Lost", "Cancelled"],
