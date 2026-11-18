@@ -15,6 +15,7 @@ import { conversionsFor, linkedRecords } from "@/lib/workflow";
 import { DealRoute } from "./TradeRoute";
 import { TotalPriceConverter } from "./TotalPriceConverter";
 import { QuotationCostSheet } from "./QuotationCostSheet";
+import { CalculationSheet } from "./CalculationSheet";
 import type { CollectionName, LineItem, Rec } from "@/lib/types";
 
 export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { initialValues?: Partial<Rec>; col: CollectionName; id: string | "new"; onClose: () => void; onOpen: (col: CollectionName, id: string) => void }) {
@@ -209,7 +210,10 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
               onRateChange={(rate) => set({ exchangeRate: rate })}
               onChange={(items) => set({ items })}
             />
-            {itemsMode === "sale" && (
+            {(col === "quotations" || col === "purchaseOrders") && (
+              <CalculationSheet data={data} set={set} col={col} />
+            )}
+            {itemsMode === "sale" && col !== "quotations" && (
               <QuotationCostSheet data={data} set={set} col={col} />
             )}
           </Section>

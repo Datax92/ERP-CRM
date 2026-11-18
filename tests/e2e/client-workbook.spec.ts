@@ -86,10 +86,12 @@ test('launcher customization: remove, persist, restore, and pointer-drag apps', 
 test('supplier best-price and purchase-order client filters work in the browser', async ({ page }) => {
   await login(page);
   await page.goto('/suppliers/');
+  await page.getByRole('button', { name: /^Filters/ }).click();
   await page.getByLabel('Best price for product / brand', { exact: true }).selectOption('Pump · A');
   await expect(page.getByRole('cell', { name: 'Low Price', exact: true })).toBeVisible();
   await expect(page.getByRole('cell', { name: 'High Price', exact: true })).toHaveCount(0);
   await page.goto('/purchase-orders/');
+  await page.getByRole('button', { name: /^Filters/ }).click();
   await page.getByLabel('Client', { exact: true }).selectOption('Workbook Client');
   await expect(page.getByRole('cell', { name: 'W-PO', exact: true })).toBeVisible();
   await page.getByRole('tab', { name: 'Reports & graphs' }).click();

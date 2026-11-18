@@ -11,7 +11,7 @@ export function MarketingChannels({ rows, value, onChange }: { rows: Rec[]; valu
     { key: 'whatsapp' as const, label: 'By WhatsApp', Icon: MessageCircle },
     { key: 'call' as const, label: 'By Call', Icon: Phone },
   ];
-  return <section className="marketing-channel-section" aria-label="Marketing outreach">
+  return <section className="marketing-channel-section" aria-label="Marketing outreach" title="Select a channel to view client activities, status, contact history and next follow-up. Counts include all activities in that channel.">
     <div role="tablist" aria-label="Marketing channels" className="marketing-channel-tabs">
       {channels.map(({key,label,Icon}) => {
         const entries = rows.filter(r => marketingChannel(r.channel) === key);
@@ -25,6 +25,5 @@ export function MarketingChannels({ rows, value, onChange }: { rows: Rec[]; valu
       <button type="button" role="tab" className="btn marketing-channel-all" aria-selected={value === 'all'} onClick={() => onChange('all')}>All channels ({rows.length})</button>
       {rows.some(r => marketingChannel(r.channel) === 'other') && <button type="button" role="tab" className="btn marketing-channel-all" aria-selected={value === 'other'} onClick={() => onChange('other')}>Other channels ({rows.filter(r => marketingChannel(r.channel) === 'other').length})</button>}
     </div>
-    <p className="text-xs text-muted">Select a channel to view client activities, status, contact history and next follow-up. Counts include all activities in that channel.</p>
   </section>;
 }

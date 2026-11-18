@@ -2,7 +2,7 @@
 
 import { Fragment, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, GripVertical, Copy, Download, Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, GripVertical, Copy, Download, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { ModuleTotalBanner, ModuleTotalEndBar, ModuleTotalFooter } from "./ModuleTotalSummary";
 import { countryFlag } from "@/lib/country";
@@ -199,8 +199,9 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
     return result;
   }, [filtered, sort, m, s, groupBy]);
 
-  const activeFilters =
-    Object.values(f.sel).filter(Boolean).length + (f.from ? 1 : 0) + (f.to ? 1 : 0) + (f.q ? 1 : 0);
+  const panelFilters = Object.values(f.sel).filter(Boolean).length + (f.from ? 1 : 0) + (f.to ? 1 : 0);
+  const activeFilters = panelFilters + (f.q ? 1 : 0);
+  const [showFilters, setShowFilters] = useState(false);
 
   function exportCsv() {
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
@@ -259,60 +260,58 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
       {col === "rfqs" && <div className="erp-tabs mb-3" role="tablist" aria-label="RFQ sections">
         {[["open", "Open RFQs"], ["closed", "Closed RFQs"], ["all", "All RFQs"]].map(([key, label]) => <button key={key} role="tab" aria-selected={rfqView === key} onClick={() => setRfqView(key)}>{label} ({s.rfqs.filter(r => key === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === key).length})</button>)}
       </div>}
-      {isContact && <label className="mb-3 flex items-center gap-2 text-sm">Group contacts by
-        <select className="field" value={groupBy} onChange={e => setGroupBy(e.target.value)}><option value="">No grouping</option><option value="hierarchy">Region → Country → Sector</option><option value="region">Region</option><option value="country">Country</option><option value="sector">Sector</option></select>
-      </label>}
-      {/* Filters: one row above both the table and the reports */}
-      <div className="erp-filters card flex flex-wrap items-end">
-        <label className="relative min-w-48 flex-1">
-          <Search size={14} className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint" />
-          <input
-            className="field pl-8"
-            placeholder="Search…"
-            aria-label={`Search ${m.title.toLowerCase()}`}
-            value={f.q}
-            onChange={(e) => setF({ ...f, q: e.target.value })}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="eyebrow">From</span>
-          <input
-            type="date"
-            className="field"
-            value={f.from}
-            onChange={(e) => setF({ ...f, from: e.target.value })}
-          />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="eyebrow">To</span>
-          <input
-            type="date"
-            className="field"
-            value={f.to}
-            onChange={(e) => setF({ ...f, to: e.target.value })}
-          />
-        </label>
-        {m.filters.filter(def => col !== "marketing" || def.key !== "channel").map((def) => (
-          <label key={def.key} className="flex flex-col gap-1.5">
-            <span className="eyebrow">{def.label}</span>
-            <select
-              aria-label={def.label}
-              className="field max-w-44"
-              value={f.sel[def.key] ?? ""}
-              onChange={(e) => setF({ ...f, sel: { ...f.sel, [def.key]: e.target.value } })}
-            >
-              <option value="">All</option>
-              {def.options(s).map((o) => (
-                <option key={o} value={o}>{def.key === "country" ? `${countryFlag(o) || "🌐"} ${o}` : o}</option>
-              ))}
-            </select>
+      {/* Filters: one compact toolbar; the detailed filters open only when asked for. */}
+      <div className="erp-filters card">
+        <div className="erp-filter-bar">
+          <label className="relative min-w-48 flex-1">
+            <Search size={14} className="absolute top-1/2 left-2.5 -translate-y-1/2 text-faint" />
+            <input
+              className="field pl-8"
+              placeholder="Search…"
+              aria-label={`Search ${m.title.toLowerCase()}`}
+              value={f.q}
+              onChange={(e) => setF({ ...f, q: e.target.value })}
+            />
           </label>
-        ))}
-        {activeFilters > 0 && (
-          <button className="btn" onClick={() => { setF({ q: "", from: "", to: "", sel: {} }); }}>
-            Clear ({activeFilters})
+          {isContact && <label className="erp-filter-inline">
+            <span>Group by</span>
+            <select className="field" aria-label="Group contacts by" value={groupBy} onChange={e => setGroupBy(e.target.value)}><option value="">No grouping</option><option value="hierarchy">Region → Country → Sector</option><option value="region">Region</option><option value="country">Country</option><option value="sector">Sector</option></select>
+          </label>}
+          <button type="button" className={`btn ${showFilters || panelFilters ? "erp-filter-on" : ""}`} aria-expanded={showFilters} onClick={() => setShowFilters(v => !v)}>
+            <SlidersHorizontal size={14} /> Filters{panelFilters ? ` (${panelFilters})` : ""}
           </button>
-        )}
+          {activeFilters > 0 && (
+            <button className="btn" onClick={() => { setF({ q: "", from: "", to: "", sel: {} }); }}>
+              Clear ({activeFilters})
+            </button>
+          )}
+        </div>
+        {showFilters && <div className="erp-filter-panel">
+          <label className="flex flex-col gap-1">
+            <span className="eyebrow">From</span>
+            <input type="date" className="field" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="eyebrow">To</span>
+            <input type="date" className="field" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
+          </label>
+          {m.filters.filter(def => col !== "marketing" || def.key !== "channel").map((def) => (
+            <label key={def.key} className="flex flex-col gap-1">
+              <span className="eyebrow">{def.label}</span>
+              <select
+                aria-label={def.label}
+                className="field"
+                value={f.sel[def.key] ?? ""}
+                onChange={(e) => setF({ ...f, sel: { ...f.sel, [def.key]: e.target.value } })}
+              >
+                <option value="">All</option>
+                {def.options(s).map((o) => (
+                  <option key={o} value={o}>{def.key === "country" ? `${countryFlag(o) || "🌐"} ${o}` : o}</option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>}
       </div>
 
       {report && (
