@@ -241,3 +241,40 @@ button:disabled { cursor: not-allowed; }
 @media (max-width: 900px) { .marketing-channel-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .marketing-channel-tabs { grid-template-columns: 1fr; } .marketing-channel { padding: 10px 12px; } }
 @media (prefers-reduced-motion: reduce) { .marketing-channel { transition: none; } }
+
+/* Record drawer: one job per tab. */
+.drawer-tabs { display: flex; flex-wrap: wrap; width: max-content; max-width: 100%; }
+.drawer-tabs button { padding: 7px 14px; }
+.drawer-tab-badge { margin-left: 6px; padding: 1px 6px; border-radius: 10px; background: var(--paper-2); color: var(--ink-2); font-size: 11px; font-weight: 600; }
+
+/* Calculation sheet, laid out like Property CRM's cost sheet. */
+.calc-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.calc-kpi { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--card); }
+.calc-kpi .k { font-size: 12px; font-weight: 500; color: var(--ink-3); }
+.calc-kpi .v { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+.calc-kpi.hi { border-color: var(--brand); background: var(--brand-wash); }
+.calc-kpi .v.pos { color: var(--good); } .calc-kpi .v.neg { color: var(--bad); }
+.calc-panel { border: 1px solid var(--rule); border-radius: 6px; background: var(--card); overflow-x: auto; }
+.calc-panel-h { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
+.calc-panel-h h3 { font-size: 14px; font-weight: 600; }
+.calc-panel-h .calc-sub { flex: 1; font-size: 12px; color: var(--ink-3); }
+.calc-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px; }
+.calc-table th { padding: 7px 10px; text-align: left; font-size: 11.5px; font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--rule-2); }
+.calc-table td { padding: 4px 10px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.calc-table .no { width: 40px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.calc-table .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.calc-table td.r { width: 150px; }
+.calc-table td.strong { font-weight: 600; }
+.calc-table .basis { width: 230px; }
+.calc-table .basis small { display: block; margin-top: 1px; font-size: 11px; color: var(--ink-3); }
+.calc-in { width: 100%; height: 28px; padding: 0 8px; border: 1px solid var(--rule-2); border-radius: 4px; background: var(--card); font-size: 13px; text-align: right; }
+.calc-in:focus { outline: 2px solid var(--brand-2); outline-offset: 0; }
+.calc-table tr.sec td { padding-top: 10px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--brand); background: var(--paper); }
+.calc-table tr.base td { font-weight: 700; background: var(--brand-wash); }
+.calc-table tr.total td { padding: 8px 10px; font-weight: 700; border-top: 2px solid var(--brand); }
+.calc-table tr.result td { padding: 9px 10px; font-size: 14.5px; font-weight: 800; border-top: 3px double var(--good); background: var(--good-soft); color: var(--good); }
+.calc-table tr.result.loss td { border-top-color: var(--bad); background: var(--bad-soft); color: var(--bad); }
+.items-converter > summary { display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 13px; font-weight: 500; color: var(--brand); cursor: pointer; list-style: none; }
+.items-converter > summary::before { content: "▸"; transition: transform .15s; }
+.items-converter[open] > summary::before { transform: rotate(90deg); }
+.items-converter > summary::-webkit-details-marker { display: none; }

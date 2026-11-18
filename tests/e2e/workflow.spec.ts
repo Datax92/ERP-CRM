@@ -36,6 +36,10 @@ async function login(page: Page) {
 }
 
 const drawer = (page: Page) => page.getByRole("dialog");
+// The record drawer has one tab per job (Overview, Details, Items, Cost sheet, Files).
+async function showTab(page: Page, name: string | RegExp) {
+  await drawer(page).getByRole("tab", { name, exact: typeof name === "string" ? true : undefined }).click();
+}
 const field = (page: Page, label: string | RegExp) => drawer(page).getByLabel(label, { exact: typeof label === "string" ? false : undefined }).first();
 
 async function saveDrawer(page: Page) {
@@ -45,6 +49,7 @@ async function saveDrawer(page: Page) {
 
 const title = (page: Page) => drawer(page).locator(".drawer-title").first();
 async function nextStep(page: Page, label: string | RegExp, heading: RegExp) {
+  await showTab(page, "Overview");
   await drawer(page).getByRole("button", { name: label }).click();
   await expect(title(page)).toHaveText(heading);
   await expect(drawer(page).getByRole("button", { name: "Saved" })).toBeVisible();
@@ -52,6 +57,7 @@ async function nextStep(page: Page, label: string | RegExp, heading: RegExp) {
 
 const overview = (page: Page) => drawer(page).locator("section").filter({ hasText: "Overview" }).first();
 async function expectOverview(page: Page, label: string, value: string | RegExp) {
+  await showTab(page, "Overview");
   const exact = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
   const item = overview(page).locator("dl > div").filter({ has: page.locator("dt", { hasText: exact }) });
   await expect(item.locator("dd")).toHaveText(value);
@@ -81,7 +87,9 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
 
   // --- RFQ from the client
   await nextStep(page, /New RFQ for this client/, /^RFQ-\d{4}-0001/);
+  await showTab(page, "Details");
   await expect(field(page, /^Region/)).toHaveValue("Sindh");
+  await showTab(page, /^Items/);
   await drawer(page).getByRole("button", { name: "Add item" }).click();
   const r0 = itemRow(page, 0).locator("input, textarea");
   await r0.nth(0).fill("Pump 50 m3/h");
@@ -93,11 +101,13 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
 
   // --- Quotation (costing, offered rate, margin)
   await nextStep(page, /Convert to quotation/, /^QT-\d{4}-0001/);
+  await showTab(page, /^Items/);
   await expect(itemRow(page, 0).locator("textarea")).toHaveValue("Pump 50 m3/h");
   await itemRow(page, 0).locator("select").selectOption({ label: "Grundfos ME" });
   const q0 = itemRow(page, 0).locator('input[type="number"]');
   await q0.nth(1).fill("250000");
   await q0.nth(2).fill("310000");
+  await showTab(page, "Details");
   await field(page, /^Status/).selectOption("Sent");
   await field(page, /Follow-up status/).selectOption("Awaiting response");
   await saveDrawer(page);
@@ -108,6 +118,7 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
 
   // --- Sales order
   await nextStep(page, /Convert to sales order/, /^SO-\d{4}-0001/);
+  await showTab(page, "Details");
   await field(page, /Incoterm/).selectOption("CIF");
   await field(page, /Shipment date \(delivery\)/).fill("2026-03-10");
   await saveDrawer(page);
@@ -116,6 +127,7 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
   // --- Purchase order to the supplier named on the quotation line
   await nextStep(page, /Issue PO to Grundfos ME/, /^PO-\d{4}-0001/);
   await expectOverview(page, "PO value", "PKR 1,000,000");
+  await showTab(page, "Details");
   await expect(field(page, /Supplier payment terms/)).toHaveValue("LC (Letter of Credit)");
   await nextStep(page, /Record payment to vendor/, /^PAY-\d{4}-0001/);
   await page.goBack();
@@ -126,6 +138,7 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
   // --- Proforma to client + partial payment receipt
   await nextStep(page, /Create proforma invoice to client/, /^PI-\d{4}-0001/);
   await nextStep(page, /Record payment received/, /^PAY-\d{4}-0002/);
+  await showTab(page, "Details");
   await field(page, /^Amount/).fill("500000");
   await field(page, /Payment method/).selectOption("Bank Transfer");
   await saveDrawer(page);
@@ -138,6 +151,7 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
   await page.goto("/sales-orders/");
   await page.getByRole("cell", { name: /SO-\d{4}-0001/ }).click();
   await nextStep(page, /Create delivery/, /^DN-\d{4}-0001/);
+  await showTab(page, "Details");
   await expect(field(page, /Incoterm/)).toHaveValue("CIF");
   await field(page, /Delivered on/).fill("2026-03-20");
   await field(page, /^Status/).selectOption("Delivered");

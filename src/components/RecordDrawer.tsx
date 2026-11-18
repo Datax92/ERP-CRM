@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, Calculator, FileText, Trash2 } from "lucide-react";
+import { ArrowRight, Trash2 } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { Attachments, CurrencyField, ItemsEditor, ListSelect, MultiSelect, RefSelect } from "./fields";
 import { Badge, Drawer, Section } from "./ui";
@@ -17,6 +17,8 @@ import { TotalPriceConverter } from "./TotalPriceConverter";
 import { QuotationCostSheet } from "./QuotationCostSheet";
 import { CalculationSheet } from "./CalculationSheet";
 import type { CollectionName, LineItem, Rec } from "@/lib/types";
+
+type DrawerTab = "overview" | "details" | "items" | "costSheet" | "margin" | "files";
 
 export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { initialValues?: Partial<Rec>; col: CollectionName; id: string | "new"; onClose: () => void; onOpen: (col: CollectionName, id: string) => void }) {
   const s = useStore();
@@ -33,8 +35,18 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [activeDrawerTab, setActiveDrawerTab] = useState<"details" | "costSheet">("details");
   const isNew = !existing;
+  const itemsModeForTabs = m.itemsMode?.(data);
+  // One job per tab, so a record never opens as one long page.
+  const tabs: { key: DrawerTab; label: string; badge?: string }[] = [
+    ...(existing ? [{ key: "overview" as const, label: "Overview" }] : []),
+    { key: "details", label: "Details" },
+    ...(itemsModeForTabs ? [{ key: "items" as const, label: `Items${data.items?.length ? ` (${data.items.length})` : ""}` }] : []),
+    ...(col === "quotations" || col === "purchaseOrders" ? [{ key: "costSheet" as const, label: "Cost sheet" }] : []),
+    ...(col === "quotations" || col === "salesOrders" || col === "costSheets" ? [{ key: "margin" as const, label: "Margin analysis", badge: data.netMarginPct !== undefined ? fmtPct(data.netMarginPct) : undefined }] : []),
+    { key: "files", label: `Files${data.attachments?.length ? ` (${data.attachments.length})` : ""}` },
+  ];
+  const [tab, setTab] = useState<DrawerTab>(existing ? "overview" : "details");
   const fields = m.fields.map(f => col === "marketing" && !isNew && !existing?.clientId && f.name === "clientId" ? { ...f, required: false } : f);
   const close = () => { if (!busy && (!dirty || window.confirm("Discard unsaved changes?"))) onClose(); };
 
@@ -60,7 +72,7 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
   async function save(e?: React.FormEvent) {
     e?.preventDefault();
     const missing = fields.filter((f) => f.required && (!f.showIf || f.showIf(data)) && (data[f.name] === undefined || data[f.name] === ""));
-    if (missing.length) return setError(`Required: ${missing.map((f) => f.label).join(", ")}`);
+    if (missing.length) { setTab("details"); return setError(`Required: ${missing.map((f) => f.label).join(", ")}`); }
     if (col === "marketing" && ["Contacted", "Follow-up", "Closed"].includes(data.status) && (!data.lastContactDate || !String(data.lastContactDetails || '').trim())) return setError("Add the last contact date and details for this activity status.");
     if (col === "marketing" && data.lastContactDate && data.lastContactDate > today()) return setError("Last contact date cannot be in the future.");
     setBusy(true);
@@ -118,87 +130,68 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
         </>
       }
     >
-      {existing && <Summary col={col} r={existing} s={s} />}
-      {col === "clients" && existing && <div className="mb-4"><Link className="btn" href={`/marketing/?new=1&client=${encodeURIComponent(existing.id)}`}>Record marketing activity</Link></div>}
-      {existing && <Workflow col={col} r={existing} s={s} dirty={dirty} onOpen={onOpen} />}
-
-      {(col === "quotations" || col === "salesOrders" || col === "costSheets") && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
-          <div className="inline-flex rounded-lg border border-line bg-surface p-1">
-            <button
-              type="button"
-              onClick={() => setActiveDrawerTab("details")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                activeDrawerTab === "details"
-                  ? "bg-accent text-accent-ink shadow-xs"
-                  : "text-muted hover:text-ink"
-              }`}
-            >
-              <FileText size={13} />
-              <span>Quotation Details & Items</span>
+      {tabs.length > 1 && (
+        <div role="tablist" aria-label={`${m.singular} sections`} className="erp-tabs drawer-tabs mb-4">
+          {tabs.map((t) => (
+            <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}>
+              {t.label}{t.badge ? <span className="drawer-tab-badge">{t.badge}</span> : null}
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveDrawerTab("costSheet")}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-                activeDrawerTab === "costSheet"
-                  ? "bg-accent text-accent-ink shadow-xs"
-                  : "text-muted hover:text-ink"
-              }`}
-            >
-              <Calculator size={13} />
-              <span>Deal Cost Sheet & Margin</span>
-              {data.netMarginPct !== undefined && (
-                <span className="rounded-full bg-black/10 dark:bg-white/10 px-1.5 py-0.5 text-[10px]">
-                  {fmtPct(data.netMarginPct)}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className="text-xs font-medium text-accent hover:underline flex items-center gap-1"
-            onClick={() => setActiveDrawerTab(activeDrawerTab === "details" ? "costSheet" : "details")}
-          >
-            <span>{activeDrawerTab === "details" ? "Full Cost Sheet tab" : "Quotation Details & Items"}</span>
-            <ArrowRight size={12} />
-          </button>
+          ))}
         </div>
       )}
 
-      {(col === "quotations" || col === "salesOrders" || col === "costSheets") && activeDrawerTab === "costSheet" && (
-        <div className="mb-6 space-y-4">
-          <QuotationCostSheet data={data} set={set} col={col} />
-        </div>
-      )}
+      <form id="record-form" onSubmit={save}>
+        {tab === "overview" && existing && (
+          <>
+            <Summary col={col} r={existing} s={s} />
+            {col === "clients" && <div className="mb-4"><Link className="btn" href={`/marketing/?new=1&client=${encodeURIComponent(existing.id)}`}>Record marketing activity</Link></div>}
+            <Workflow col={col} r={existing} s={s} dirty={dirty} onOpen={onOpen} />
+            <Linked col={col} r={existing} s={s} onOpen={onOpen} />
+            <p className="text-xs text-faint">Created {fmtDate(existing.createdAt)} · Updated {fmtDate(existing.updatedAt)}</p>
+          </>
+        )}
 
-      <form id="record-form" onSubmit={save} className={(col === "quotations" || col === "salesOrders" || col === "costSheets") && activeDrawerTab === "costSheet" ? "hidden" : "block"}>
-        {col === "marketing" && data.clientId && <Section title="Selected client">
-          <div className="grid gap-2 text-sm sm:grid-cols-2">
-            <p><strong>{s.byId.clients.get(data.clientId)?.name || "Client no longer available"}</strong><br />{s.byId.clients.get(data.clientId)?.contactPerson || ""}</p>
-            <p>{s.byId.clients.get(data.clientId)?.email || "No email recorded"}<br />{s.byId.clients.get(data.clientId)?.whatsapp || s.byId.clients.get(data.clientId)?.mobile || s.byId.clients.get(data.clientId)?.phone || "No phone recorded"}</p>
-          </div>
-          {(() => { const last = latestMarketingContact(data, s.marketing); return last ? <p className="mt-3 text-xs text-muted">Latest contact: {fmtDate(contactDate(last))} · {marketingChannelName(last.channel)} · {contactDetails(last) || "No details recorded"}</p> : <p className="mt-3 text-xs text-muted">No previous contact recorded for this client.</p>; })()}
-        </Section>}
-        <Section title="Details">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {fields
-              .filter((f) => f.type !== "items" && (!f.showIf || f.showIf(data)))
-              .map((f) => (
-                <label key={f.name} className={`block space-y-1 text-sm ${f.wide || f.type === "textarea" || f.type === "multiselect" ? "sm:col-span-2 lg:col-span-3" : ""}`}>
-                  <span className="text-muted">
-                    {f.label}
-                    {f.required && <span className="text-bad"> *</span>}
-                  </span>
-                  <FieldInput f={f} data={data} set={set} setField={setField} />
-                  {f.help && <span className="block text-xs text-faint">{f.help}</span>}
-                </label>
-              ))}
-          </div>
-        </Section>
+        {tab === "details" && (
+          <>
+            {col === "marketing" && data.clientId && <Section title="Selected client">
+              <div className="grid gap-2 text-sm sm:grid-cols-2">
+                <p><strong>{s.byId.clients.get(data.clientId)?.name || "Client no longer available"}</strong><br />{s.byId.clients.get(data.clientId)?.contactPerson || ""}</p>
+                <p>{s.byId.clients.get(data.clientId)?.email || "No email recorded"}<br />{s.byId.clients.get(data.clientId)?.whatsapp || s.byId.clients.get(data.clientId)?.mobile || s.byId.clients.get(data.clientId)?.phone || "No phone recorded"}</p>
+              </div>
+              {(() => { const last = latestMarketingContact(data, s.marketing); return last ? <p className="mt-3 text-xs text-muted">Latest contact: {fmtDate(contactDate(last))} · {marketingChannelName(last.channel)} · {contactDetails(last) || "No details recorded"}</p> : <p className="mt-3 text-xs text-muted">No previous contact recorded for this client.</p>; })()}
+            </Section>}
+            <Section title="Details">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {fields
+                  .filter((f) => f.type !== "items" && (!f.showIf || f.showIf(data)))
+                  .map((f) => (
+                    <label key={f.name} className={`block space-y-1 text-sm ${f.wide || f.type === "textarea" || f.type === "multiselect" ? "sm:col-span-2 lg:col-span-3" : ""}`}>
+                      <span className="text-muted">
+                        {f.label}
+                        {f.required && <span className="text-bad"> *</span>}
+                      </span>
+                      <FieldInput f={f} data={data} set={set} setField={setField} />
+                      {f.help && <span className="block text-xs text-faint">{f.help}</span>}
+                    </label>
+                  ))}
+              </div>
+            </Section>
+            {!itemsMode && (col === "payments" || col === "expenses" || col === "financeEntries" || col === "investors" || col === "companyDocs" || data.amount != null || (m.amountField && data[m.amountField] != null)) && (
+              <Section title="Total Price & Currency Converter">
+                <TotalPriceConverter
+                  amount={previewAmount}
+                  currency={data.currency || "PKR"}
+                  exchangeRate={typeof data.exchangeRate === "number" ? data.exchangeRate : Number(data.exchangeRate) || 1}
+                  onRateChange={(rate) => set({ exchangeRate: rate })}
+                  mode="amount"
+                  label={col === "payments" ? "Payment amount" : col === "expenses" ? "Expense amount" : col === "investors" ? "Investment principal" : "Total amount"}
+                />
+              </Section>
+            )}
+          </>
+        )}
 
-        {itemsMode && (
+        {tab === "items" && itemsMode && (
           <Section title={m.fields.find((f) => f.type === "items")?.label ?? "Items"}>
             <ItemsEditor
               mode={itemsMode}
@@ -210,39 +203,19 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
               onRateChange={(rate) => set({ exchangeRate: rate })}
               onChange={(items) => set({ items })}
             />
-            {(col === "quotations" || col === "purchaseOrders") && (
-              <CalculationSheet data={data} set={set} col={col} />
-            )}
-            {itemsMode === "sale" && col !== "quotations" && (
-              <QuotationCostSheet data={data} set={set} col={col} />
-            )}
           </Section>
         )}
 
-        {!itemsMode && (col === "payments" || col === "expenses" || col === "financeEntries" || col === "investors" || col === "companyDocs" || data.amount != null || (m.amountField && data[m.amountField] != null)) && (
-          <Section title="Total Price & Currency Converter">
-            <TotalPriceConverter
-              amount={previewAmount}
-              currency={data.currency || "PKR"}
-              exchangeRate={typeof data.exchangeRate === "number" ? data.exchangeRate : Number(data.exchangeRate) || 1}
-              onRateChange={(rate) => set({ exchangeRate: rate })}
-              mode="amount"
-              label={col === "payments" ? "Payment amount" : col === "expenses" ? "Expense amount" : col === "investors" ? "Investment principal" : "Total amount"}
-            />
+        {tab === "costSheet" && <CalculationSheet data={data} set={set} col={col} />}
+
+        {tab === "margin" && <QuotationCostSheet data={data} set={set} col={col} />}
+
+        {tab === "files" && (
+          <Section title="Attachments">
+            <Attachments col={col} recordId={data.id} value={data.attachments} onChange={(attachments) => set({ attachments })} />
           </Section>
         )}
-
-        <Section title="Attachments">
-          <Attachments col={col} recordId={data.id} value={data.attachments} onChange={(attachments) => set({ attachments })} />
-        </Section>
       </form>
-
-      {existing && <Linked col={col} r={existing} s={s} onOpen={onOpen} />}
-      {existing && (
-        <p className="text-xs text-faint">
-          Created {fmtDate(existing.createdAt)} · Updated {fmtDate(existing.updatedAt)}
-        </p>
-      )}
     </Drawer>
   );
 }
@@ -350,8 +323,8 @@ function Linked({ col, r, s, onOpen }: { col: CollectionName; r: Rec; s: Store; 
                 {labelOf(c, rec, s)}
               </span>
               <span className="flex items-center gap-2 text-xs text-muted">
-                {rec.date && fmtDate(rec.date)}
-                {"amount" in rec && fmtMoney(rec.amount, rec.currency)}
+                {rec.date && <span>{fmtDate(rec.date)}</span>}
+                {"amount" in rec && <span>{fmtMoney(rec.amount, rec.currency)}</span>}
                 {rec.status && <Badge tone={statusTone(rec.status)}>{rec.status}</Badge>}
               </span>
             </button>

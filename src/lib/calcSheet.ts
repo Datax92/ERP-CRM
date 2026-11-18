@@ -34,6 +34,13 @@ export const CALC_HEADS: CalcHead[] = [
   { key: "lcCharges", label: "CAD - L/C Charges", base: "exWorks" },
 ];
 
+/** Section headings the sheet is grouped under, by the first head of each section. */
+export const CALC_SECTIONS: Partial<Record<CalcHeadKey, string>> = {
+  packing: "Export & shipping",
+  customsDuty: "Duties & taxes",
+  clearing: "Clearing & bank",
+};
+
 export const BASE_HINT: Record<CalcHead["base"], string> = {
   exWorks: "% of ex-works price",
   cif: "% of CIF value",

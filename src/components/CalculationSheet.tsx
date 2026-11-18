@@ -1,15 +1,15 @@
 "use client";
 
 import { useMemo } from "react";
-import { Calculator, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { fmtNum, itemTotals, num, rateOf } from "@/lib/calc";
-import { BASE_HINT, CALC_HEADS, computeCalcSheet, type CalcHeadKey, type CalcSheetInput } from "@/lib/calcSheet";
+import { BASE_HINT, CALC_HEADS, CALC_SECTIONS, computeCalcSheet, type CalcHeadKey, type CalcSheetInput } from "@/lib/calcSheet";
 import type { CollectionName, Rec } from "@/lib/types";
 
 /**
  * The client's Calculation Sheet (landed cost → total expenses → net margin),
- * shown inside quotations and purchase orders. Stored on the record as `calcSheet`.
+ * its own tab in quotations and purchase orders. Stored on the record as `calcSheet`.
  */
 export function CalculationSheet({ data, set, col }: { data: Rec; set: (patch: Partial<Rec>) => void; col: CollectionName }) {
   const s = useStore();
@@ -45,93 +45,93 @@ export function CalculationSheet({ data, set, col }: { data: Rec; set: (patch: P
       },
     });
   };
-  const setRow = (key: CalcHeadKey, value: string) => update({ rows: { [key]: value } });
-  const money = (n: number) => (n ? fmtNum(n, 2) : "0");
-  const overrideInput = (field: "exWorks" | "saleValue", fallback: number) => (
+  const money = (n: number) => `${currency} ${fmtNum(n, 2)}`;
+  const amountInput = (field: "exWorks" | "saleValue", fallback: number, label: string) => (
     <input
       type="number"
       step="any"
-      className="field h-8 w-full py-1 text-right text-sm"
+      aria-label={label}
+      className="calc-in"
       value={sheet[field] ?? ""}
-      placeholder={fallback ? fmtNum(fallback, 2) : "0"}
+      placeholder={fmtNum(fallback, 2)}
       onChange={(e) => update({ [field]: e.target.value === "" ? null : Number(e.target.value) })}
     />
   );
 
-  const cell = "border border-line px-3 py-1.5";
-  const amountCell = `${cell} text-right tabular-nums bg-info-soft/40 font-medium text-ink`;
-
   return (
-    <div className="calc-sheet mt-4 overflow-hidden rounded-xl border border-line bg-surface">
-      <div className="flex items-center justify-between gap-2 bg-[#22345a] px-4 py-2.5 text-white">
-        <div className="flex items-center gap-2">
-          <Calculator size={16} />
-          <span className="text-sm font-semibold tracking-wide uppercase">Calculation sheet</span>
-          <span className="text-xs opacity-75">({currency})</span>
-        </div>
-        <button type="button" className="inline-flex items-center gap-1 rounded-md border border-white/30 px-2 py-1 text-xs hover:bg-white/10 print:hidden" onClick={() => printSheet()}>
-          <Printer size={12} /> Print
-        </button>
+    <div className="calc-sheet">
+      <div className="calc-kpis">
+        <Kpi k="Ex-works price" v={money(r.exWorks)} />
+        <Kpi k="Total expenses" v={money(r.totalExpenses)} />
+        <Kpi k="Landed cost" v={money(r.landedCost)} />
+        <Kpi k={col === "purchaseOrders" ? "Sale value (sales order)" : "Sale value"} v={money(r.saleValue)} />
+        <Kpi k="Net margin" v={money(r.netMargin)} tone={r.netMargin < 0 ? "neg" : r.netMargin > 0 ? "pos" : ""} hi />
+        <Kpi k="Net margin %" v={r.saleValue ? `${r.netMarginPct.toFixed(2)}%` : "—"} tone={r.netMargin < 0 ? "neg" : ""} />
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] border-collapse text-sm">
+
+      <div className="calc-panel">
+        <div className="calc-panel-h">
+          <h3>Calculation sheet</h3>
+          <span className="calc-sub">Type an amount (1500) or a percentage (2%)</span>
+          <button type="button" className="btn" onClick={() => printSheet()}><Printer size={13} /> Print</button>
+        </div>
+        <table className="calc-table">
           <thead>
-            <tr className="bg-[#344d7a] text-left text-white">
-              <th className="w-10 border border-white/20 px-3 py-2 text-center">#</th>
-              <th className="border border-white/20 px-3 py-2">Cost Head / Expense Stage</th>
-              <th className="w-44 border border-white/20 px-3 py-2 text-center">% or Fix Charges</th>
-              <th className="w-40 border border-white/20 px-3 py-2 text-center">Total Amount</th>
-            </tr>
+            <tr><th className="no">#</th><th>Cost head</th><th>% or fixed</th><th className="r">Amount ({currency})</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td className={`${cell} text-center text-muted`}>1</td>
-              <td className={`${cell} font-semibold text-ink`}>Ex-works Factory Price<span className="block text-[11px] font-normal text-faint">Defaults to the items&apos; cost total</span></td>
-              <td className={cell}>{overrideInput("exWorks", totals.totalCost)}</td>
-              <td className={amountCell}>{money(r.exWorks)}</td>
+            <tr className="base">
+              <td className="no">1</td>
+              <td>Ex-works Factory Price</td>
+              <td className="basis">{amountInput("exWorks", totals.totalCost, "Ex-works factory price")}<small>From items&apos; cost; type to change</small></td>
+              <td className="r">{fmtNum(r.exWorks, 2)}</td>
             </tr>
             {CALC_HEADS.map((h, i) => (
-              <tr key={h.key}>
-                <td className={`${cell} text-center text-muted`}>{i + 2}</td>
-                <td className={`${cell} ${h.tax ? "font-semibold" : ""} text-ink`}>{h.label}</td>
-                <td className={`${cell} ${h.tax ? "bg-info-soft/30" : ""}`}>
+              <Row key={h.key} section={CALC_SECTIONS[h.key]}>
+                <td className="no">{i + 2}</td>
+                <td className={h.tax ? "strong" : ""}>{h.label}</td>
+                <td className="basis">
                   <input
-                    className="field h-8 w-full py-1 text-right text-sm"
+                    className="calc-in"
+                    aria-label={h.label}
                     value={sheet.rows?.[h.key] ?? ""}
-                    placeholder={h.tax ? "e.g. 20%" : "e.g. 1500 or 2%"}
-                    title={`Type an amount, or a percentage (${BASE_HINT[h.base]})`}
-                    onChange={(e) => setRow(h.key, e.target.value)}
+                    placeholder={h.tax ? "e.g. 20%" : ""}
+                    title={`A fixed amount, or a percentage (${BASE_HINT[h.base]})`}
+                    onChange={(e) => update({ rows: { [h.key as CalcHeadKey]: e.target.value } })}
                   />
+                  {h.tax && <small>{BASE_HINT[h.base]}</small>}
                 </td>
-                <td className={amountCell}>{money(r.amounts[h.key])}</td>
-              </tr>
+                <td className="r">{r.amounts[h.key] ? fmtNum(r.amounts[h.key], 2) : "—"}</td>
+              </Row>
             ))}
-            <tr className="bg-surface-2">
-              <td colSpan={3} className={`${cell} text-right font-medium uppercase text-muted`}>Total Buy Cost (Landed Cost)</td>
-              <td className={`${cell} text-right font-semibold tabular-nums text-ink`}>{money(r.landedCost)}</td>
-            </tr>
-            <tr className="bg-warn-soft">
-              <td colSpan={3} className={`${cell} border-t-2 border-t-ink/40 text-right font-bold uppercase text-ink`}>Total Expenses</td>
-              <td className={`${cell} border-t-2 border-t-ink/40 text-right font-bold tabular-nums text-ink`}>{money(r.totalExpenses)}</td>
-            </tr>
+            <tr className="total"><td /><td colSpan={2}>Total expenses</td><td className="r">{fmtNum(r.totalExpenses, 2)}</td></tr>
+            <tr className="total"><td /><td colSpan={2}>Total buy cost (landed cost)</td><td className="r">{fmtNum(r.landedCost, 2)}</td></tr>
             <tr>
-              <td colSpan={2} className={`${cell} text-right text-muted`}>Sale value{col === "purchaseOrders" ? " (linked sales order)" : " (offered price)"}</td>
-              <td className={cell}>{overrideInput("saleValue", defaultSale)}</td>
-              <td className={`${cell} text-right tabular-nums text-ink`}>{money(r.saleValue)}</td>
+              <td />
+              <td>Sale value</td>
+              <td className="basis">{amountInput("saleValue", defaultSale, "Sale value")}<small>{col === "purchaseOrders" ? "From the linked sales order" : "From the offered price"}</small></td>
+              <td className="r">{fmtNum(r.saleValue, 2)}</td>
             </tr>
-            <tr className="bg-surface-2">
-              <td colSpan={3} className={`${cell} text-right font-medium uppercase text-muted`}>
-                Net Margin {r.saleValue ? <span className="normal-case">({r.netMarginPct.toFixed(2)}%)</span> : null}
-              </td>
-              <td className={`${cell} text-right font-bold tabular-nums ${r.netMargin < 0 ? "text-bad" : r.netMargin > 0 ? "text-good" : "text-ink"}`}>{money(r.netMargin)}</td>
+            <tr className={`result ${r.netMargin < 0 ? "loss" : ""}`}>
+              <td /><td colSpan={2}>Net margin{r.saleValue ? ` (${r.netMarginPct.toFixed(2)}%)` : ""}</td><td className="r">{fmtNum(r.netMargin, 2)}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p className="px-4 py-2 text-[11px] text-faint">
-        Type a fixed amount (1500) or a percentage (2%). Percentages use the ex-works price; customs duty uses the CIF value, sales tax adds duty, and income tax adds both.
-      </p>
     </div>
+  );
+}
+
+function Kpi({ k, v, tone = "", hi }: { k: string; v: string; tone?: string; hi?: boolean }) {
+  return <div className={`calc-kpi ${hi ? "hi" : ""}`}><span className="k">{k}</span><span className={`v ${tone}`}>{v}</span></div>;
+}
+
+function Row({ section, children }: { section?: string; children: React.ReactNode }) {
+  return (
+    <>
+      {section && <tr className="sec"><td colSpan={4}>{section}</td></tr>}
+      <tr>{children}</tr>
+    </>
   );
 }
 
@@ -146,12 +146,12 @@ function printSheet() {
     span.textContent = (inp as HTMLInputElement).value || "";
     inp.replaceWith(span);
   });
-  clone.querySelectorAll("button").forEach((b) => b.remove());
+  clone.querySelectorAll("button, small").forEach((b) => b.remove());
   w.document.write(`<!doctype html><html><head><title>Calculation sheet</title><style>
-    body{font-family:Calibri,Segoe UI,Arial,sans-serif;margin:24px;color:#111}
-    table{border-collapse:collapse;width:100%;font-size:14px}td,th{border:1px solid #ccc;padding:6px 10px}
-    thead tr{background:#344d7a;color:#fff}.text-right{text-align:right}.text-center{text-align:center}
-    .bg-warn-soft{background:#fff7c2}.font-bold,.font-semibold{font-weight:700}div:first-child{font-weight:700}p{font-size:11px;color:#666}
+    body{font-family:Arial,sans-serif;margin:24px;color:#111;font-size:13px}
+    .calc-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}.calc-kpi{border:1px solid #ddd;padding:8px}.calc-kpi .k{display:block;color:#666;font-size:11px}.calc-kpi .v{font-weight:700}
+    h3{margin:0 0 8px}.calc-sub{display:none}table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;padding:6px 8px;text-align:left}.r{text-align:right}
+    tr.sec td{font-weight:700;text-transform:uppercase;font-size:11px;color:#22345a;background:#f3f5f9}tr.base td,tr.total td,tr.result td{font-weight:700}tr.result td{border-top:3px double #333}
   </style></head><body>${clone.outerHTML}</body></html>`);
   w.document.close();
   w.focus();

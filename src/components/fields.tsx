@@ -311,7 +311,7 @@ export function ItemsEditor({
   return (
     <div>
       <div className="overflow-x-auto rounded-md border border-line">
-        <table className="w-full min-w-[980px] text-sm">
+        <table className="w-full min-w-[1080px] text-sm">
           <thead className="bg-surface-2 text-left text-xs text-muted">
             <tr>
               <th className="px-2 py-1.5 font-medium">#</th>
@@ -337,7 +337,7 @@ export function ItemsEditor({
                 <tr key={i} className="border-t border-line align-top">
                   <td className="px-2 py-1.5 text-faint">{i + 1}</td>
                   <td className="px-1 py-1">
-                    <textarea rows={1} className="field min-w-48" value={it.description} onChange={(e) => upd(i, { description: e.target.value })} />
+                    <textarea rows={1} className="field min-w-40" value={it.description} onChange={(e) => upd(i, { description: e.target.value })} />
                   </td>
                   <td className="px-1 py-1">
                     <input list="dl-items-products" className="field min-w-32" value={it.product} onChange={(e) => upd(i, { product: e.target.value })} />
@@ -358,19 +358,19 @@ export function ItemsEditor({
                     </td>
                   )}
                   <td className="px-1 py-1">
-                    <input type="number" step="any" min="0" className="field" value={it.qty} onChange={(e) => upd(i, { qty: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                    <input type="number" step="any" min="0" className="field min-w-20 text-right" value={it.qty} onChange={(e) => upd(i, { qty: e.target.value === "" ? 0 : Number(e.target.value) })} />
                   </td>
                   <td className="px-1 py-1">
-                    <input list="dl-items-units" className="field" value={it.unit} onChange={(e) => upd(i, { unit: e.target.value })} />
+                    <input list="dl-items-units" className="field min-w-20" value={it.unit} onChange={(e) => upd(i, { unit: e.target.value })} />
                   </td>
                   {cost && (
                     <td className="px-1 py-1">
-                      <input type="number" step="any" min="0" className="field" value={it.unitCost} onChange={(e) => upd(i, { unitCost: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                      <input type="number" step="any" min="0" className="field min-w-28 text-right" value={it.unitCost} onChange={(e) => upd(i, { unitCost: e.target.value === "" ? 0 : Number(e.target.value) })} />
                     </td>
                   )}
                   {sale && (
                     <td className="px-1 py-1">
-                      <input type="number" step="any" min="0" className="field" value={it.unitPrice} onChange={(e) => upd(i, { unitPrice: e.target.value === "" ? 0 : Number(e.target.value) })} />
+                      <input type="number" step="any" min="0" className="field min-w-28 text-right" value={it.unitPrice} onChange={(e) => upd(i, { unitPrice: e.target.value === "" ? 0 : Number(e.target.value) })} />
                     </td>
                   )}
                   {cost && <td className="px-2 py-2 text-right whitespace-nowrap">{fmtNum(sale ? linePrice : lineCost, 2)}</td>}
@@ -423,6 +423,8 @@ export function ItemsEditor({
       </div>
 
       {cost && (
+        <details className="items-converter mt-3">
+          <summary>Currency converter</summary>
         <TotalPriceConverter
           amount={sale ? t.totalPrice : t.totalCost}
           currency={currency}
@@ -434,6 +436,7 @@ export function ItemsEditor({
           mode={mode}
           label={sale ? "Total price" : "Total cost"}
         />
+        </details>
       )}
     </div>
   );

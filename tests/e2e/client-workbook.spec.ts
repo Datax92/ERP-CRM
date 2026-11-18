@@ -117,6 +117,7 @@ test('delivery reports use actual quantities and P/L exposes source transactions
   await expect(page.getByRole('row').filter({ hasText: 'Workbook rent' })).toContainText('1 attachment(s)');
   await page.getByRole('link', { name: 'W-EXP', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('dialog').getByRole('tab', { name: /^Files/ }).click();
   await expect(page.getByRole('dialog').getByText('receipt.pdf', { exact: true })).toBeVisible();
 });
 
@@ -126,11 +127,13 @@ test('company document attachment uploads, saves, and survives a reload', async 
   await page.goto('/company/?new=1');
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel(/^Title/).fill('Browser attachment check');
+  await dialog.getByRole('tab', { name: /^Files/ }).click();
   await dialog.locator('input[type="file"]').setInputFiles({ name: 'browser-receipt.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% Local emulator attachment test\n%%EOF') });
   await expect(dialog.getByRole('link', { name: 'browser-receipt.pdf' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Create', exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
   await page.reload();
+  await page.getByRole('dialog').getByRole('tab', { name: /^Files/ }).click();
   await expect(page.getByRole('dialog').getByRole('link', { name: 'browser-receipt.pdf' })).toBeVisible();
 });
 
@@ -143,6 +146,7 @@ test('mixed-currency quotation shows purchase costs and margins consistently in 
   const overview = dialog.locator('section').filter({ has: page.getByRole('heading', { name: 'Overview', exact: true }) });
   const cost = overview.locator('dl > div').filter({ has: page.locator('dt', { hasText: /^Total cost$/ }) });
   await expect(cost.locator('dd')).toHaveText('EUR 800');
+  await dialog.getByRole('tab', { name: /^Items/ }).click();
   const items = dialog.locator('section').filter({ has: page.getByRole('heading', { name: 'Items, costing & offered price', exact: true }) });
   await expect(items.getByText('EUR 800', { exact: true })).toBeVisible();
   await expect(items.getByText('USD 142.86', { exact: true })).toBeVisible();
@@ -156,6 +160,7 @@ test('marketing, investor, finance and expense forms save their workbook fields'
     await expect(dialog.getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
     await page.reload();
     await expect(page.getByRole('dialog').getByRole('button', { name: 'Saved', exact: true })).toBeVisible();
+    await dialog.getByRole('tab', { name: 'Details', exact: true }).click();
   };
   await page.goto('/marketing/?new=1');
   await dialog.getByRole('textbox',{name:/^Client/}).fill('Workbook');

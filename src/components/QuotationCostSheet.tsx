@@ -196,14 +196,14 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
             {currency} {fmtNum(analysis.totalSale, 2)}
           </span>
           {currency !== "PKR" && (
-            <span className="block text-[10px] text-faint">Rs. {fmtMoney(analysis.totalSalePKR)}</span>
+            <span className="block text-[10px] text-faint">{fmtMoney(analysis.totalSalePKR)}</span>
           )}
         </div>
 
         <div className="rounded-lg border border-line/60 bg-surface-2/40 p-2">
           <span className="block text-[11px] text-muted">Goods Sourcing Cost</span>
           <span className="block font-semibold text-ink text-sm">
-            Rs. {fmtMoney(analysis.totalPurchaseCostPKR)}
+            {fmtMoney(analysis.totalPurchaseCostPKR)}
           </span>
           <span className="block text-[10px] text-muted">Gross: {fmtPct(analysis.grossMarginPct)}</span>
         </div>
@@ -211,7 +211,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
         <div className="rounded-lg border border-line/60 bg-surface-2/40 p-2">
           <span className="block text-[11px] text-muted">Landed Extra Costs</span>
           <span className="block font-semibold text-ink text-sm">
-            Rs. {fmtMoney(analysis.totalExtraCostsPKR)}
+            {fmtMoney(analysis.totalExtraCostsPKR)}
           </span>
           <span className="block text-[10px] text-muted">{extraCosts.length} item(s)</span>
         </div>
@@ -219,7 +219,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
         <div className="rounded-lg border border-line/60 bg-surface-2/40 p-2">
           <span className="block text-[11px] text-muted">Broker Commission</span>
           <span className="block font-semibold text-ink text-sm">
-            Rs. {fmtMoney(analysis.totalCommissionPKR)}
+            {fmtMoney(analysis.totalCommissionPKR)}
           </span>
           <span className="block text-[10px] text-muted">
             {commissionType === "none" ? "None" : commissionType === "percent_sale" ? `${commissionRate}% sale` : "Active"}
@@ -229,7 +229,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
         <div className="rounded-lg border border-line/60 bg-surface-2/40 p-2">
           <span className="block text-[11px] text-muted">Taxes to Pay</span>
           <span className="block font-semibold text-ink text-sm">
-            Rs. {fmtMoney(analysis.totalTaxPayablePKR)}
+            {fmtMoney(analysis.totalTaxPayablePKR)}
           </span>
           <span className="block text-[10px] text-muted">WHT {whtSaleRate}% {applyGst ? "+ GST" : ""}</span>
         </div>
@@ -246,7 +246,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
             <span className="text-[11px] font-semibold">{fmtPct(analysis.netMarginPct)} net</span>
           </div>
           <span className="block text-base font-bold">
-            Rs. {fmtMoney(analysis.netProfitPKR)}
+            {fmtMoney(analysis.netProfitPKR)}
           </span>
           <div className="mt-0.5 flex items-center justify-between text-[10px] opacity-85">
             <span>Break-even selling rate:</span>
@@ -284,7 +284,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
               onClick={() => setActiveTab("commission")}
             >
               <Users size={14} />
-              <span>2. Broker Commission ({analysis.totalCommissionPKR > 0 ? `Rs. ${fmtMoney(analysis.totalCommissionPKR)}` : "None"})</span>
+              <span>2. Broker Commission ({analysis.totalCommissionPKR > 0 ? `${fmtMoney(analysis.totalCommissionPKR)}` : "None"})</span>
             </button>
             <button
               type="button"
@@ -296,7 +296,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
               onClick={() => setActiveTab("taxes")}
             >
               <Receipt size={14} />
-              <span>3. Taxes to Pay (Rs. {fmtMoney(analysis.totalTaxPayablePKR)})</span>
+              <span>3. Taxes to Pay ({fmtMoney(analysis.totalTaxPayablePKR)})</span>
             </button>
           </div>
 
@@ -308,7 +308,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                   Quick Add Landed Expenses (Sea/Air Freight, Customs, C&F, Demurrage, Cartage):
                 </span>
                 <span className="text-xs font-semibold text-ink">
-                  Total Landed Costs: Rs. {fmtMoney(analysis.totalExtraCostsPKR)}
+                  Total Landed Costs: {fmtMoney(analysis.totalExtraCostsPKR)}
                 </span>
               </div>
 
@@ -379,7 +379,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                               </select>
                             </td>
                             <td className="px-3 py-1.5 text-right font-medium text-ink whitespace-nowrap">
-                              Rs. {fmtMoney(itemPKR)}
+                              {fmtMoney(itemPKR)}
                             </td>
                             <td className="px-2 py-1.5 text-center">
                               <button
@@ -413,7 +413,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                   Sales Broker, Buying Agent or Consultant Commission:
                 </span>
                 <span className="text-xs font-semibold text-ink">
-                  Total Commission: Rs. {fmtMoney(analysis.totalCommissionPKR)}
+                  Total Commission: {fmtMoney(analysis.totalCommissionPKR)}
                 </span>
               </div>
 
@@ -475,7 +475,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                   <div className="flex flex-col justify-center">
                     <span className="text-[11px] text-muted">Computed Brokerage Payout:</span>
                     <span className="text-sm font-bold text-ink">
-                      Rs. {fmtMoney(analysis.totalCommissionPKR)}
+                      {fmtMoney(analysis.totalCommissionPKR)}
                     </span>
                   </div>
                 </div>
@@ -491,7 +491,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                   Government Tax Deductions & Liability (WHT & Sales Tax / GST):
                 </span>
                 <span className="text-xs font-bold text-ink">
-                  Total Tax Outflow: Rs. {fmtMoney(analysis.totalTaxPayablePKR)}
+                  Total Tax Outflow: {fmtMoney(analysis.totalTaxPayablePKR)}
                 </span>
               </div>
 
@@ -501,7 +501,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-ink">Client WHT (Sec 153)</span>
                     <span className="text-xs font-bold text-[var(--accent)]">
-                      Rs. {fmtMoney(analysis.whtSaleAmountPKR)}
+                      {fmtMoney(analysis.whtSaleAmountPKR)}
                     </span>
                   </div>
                   <p className="text-[11px] text-muted leading-tight">
@@ -546,7 +546,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-ink">Sales Tax / GST</span>
                     <span className="text-xs font-bold text-ink">
-                      Rs. {fmtMoney(analysis.netGstPayablePKR)}
+                      {fmtMoney(analysis.netGstPayablePKR)}
                     </span>
                   </div>
                   <label className="flex items-center gap-2 cursor-pointer pt-1">
@@ -562,15 +562,15 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                     <div className="space-y-1 text-[11px] text-muted pt-1 border-t border-line/60">
                       <div className="flex justify-between">
                         <span>Output GST (from client):</span>
-                        <span className="font-medium text-ink">Rs. {fmtMoney(analysis.gstOutputAmountPKR)}</span>
+                        <span className="font-medium text-ink">{fmtMoney(analysis.gstOutputAmountPKR)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Input GST (paid on cost):</span>
-                        <span className="font-medium text-ink">- Rs. {fmtMoney(analysis.gstInputAmountPKR)}</span>
+                        <span className="font-medium text-ink">- {fmtMoney(analysis.gstInputAmountPKR)}</span>
                       </div>
                       <div className="flex justify-between pt-1 font-semibold text-ink border-t border-line/40">
                         <span>Net GST to pay FBR:</span>
-                        <span>Rs. {fmtMoney(analysis.netGstPayablePKR)}</span>
+                        <span>{fmtMoney(analysis.netGstPayablePKR)}</span>
                       </div>
                     </div>
                   )}
@@ -581,7 +581,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-ink">Import WHT (Sec 148)</span>
                     <span className="text-xs font-bold text-ink">
-                      Rs. {fmtMoney(analysis.whtImportAmountPKR)}
+                      {fmtMoney(analysis.whtImportAmountPKR)}
                     </span>
                   </div>
                   <p className="text-[11px] text-muted leading-tight">
@@ -712,7 +712,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                           <tr key={i}>
                             <td className="p-1.5">{c.category}</td>
                             <td className="p-1.5 text-right font-medium">
-                              Rs. {fmtMoney(num(c.amount) * (c.currency === "PKR" || !c.currency ? 1 : exchangeRate))}
+                              {fmtMoney(num(c.amount) * (c.currency === "PKR" || !c.currency ? 1 : exchangeRate))}
                             </td>
                           </tr>
                         ))
@@ -723,12 +723,12 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                       )}
                       <tr className="bg-surface-2/60 font-semibold border-t">
                         <td className="p-1.5">Total Extra Expenses:</td>
-                        <td className="p-1.5 text-right">Rs. {fmtMoney(analysis.totalExtraCostsPKR)}</td>
+                        <td className="p-1.5 text-right">{fmtMoney(analysis.totalExtraCostsPKR)}</td>
                       </tr>
                       {analysis.totalCommissionPKR > 0 && (
                         <tr className="bg-amber-500/5 font-semibold">
                           <td className="p-1.5">Broker Commission ({commissionAgent || "Agent"}):</td>
-                          <td className="p-1.5 text-right">Rs. {fmtMoney(analysis.totalCommissionPKR)}</td>
+                          <td className="p-1.5 text-right">{fmtMoney(analysis.totalCommissionPKR)}</td>
                         </tr>
                       )}
                     </tbody>
@@ -741,23 +741,23 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                     <tbody className="divide-y divide-line">
                       <tr>
                         <td className="p-1.5">Client Withholding Tax ({whtSaleRate}%):</td>
-                        <td className="p-1.5 text-right font-medium">Rs. {fmtMoney(analysis.whtSaleAmountPKR)}</td>
+                        <td className="p-1.5 text-right font-medium">{fmtMoney(analysis.whtSaleAmountPKR)}</td>
                       </tr>
                       {applyGst && (
                         <tr>
                           <td className="p-1.5">Net GST Payable (18% Output - Input):</td>
-                          <td className="p-1.5 text-right font-medium">Rs. {fmtMoney(analysis.netGstPayablePKR)}</td>
+                          <td className="p-1.5 text-right font-medium">{fmtMoney(analysis.netGstPayablePKR)}</td>
                         </tr>
                       )}
                       {analysis.whtImportAmountPKR > 0 && (
                         <tr>
                           <td className="p-1.5">Import Advance Tax (Sec 148):</td>
-                          <td className="p-1.5 text-right font-medium">Rs. {fmtMoney(analysis.whtImportAmountPKR)}</td>
+                          <td className="p-1.5 text-right font-medium">{fmtMoney(analysis.whtImportAmountPKR)}</td>
                         </tr>
                       )}
                       <tr className="bg-surface-2/60 font-semibold border-t">
                         <td className="p-1.5">Total Tax Liability:</td>
-                        <td className="p-1.5 text-right">Rs. {fmtMoney(analysis.totalTaxPayablePKR)}</td>
+                        <td className="p-1.5 text-right">{fmtMoney(analysis.totalTaxPayablePKR)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -773,12 +773,12 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
                   <div>
                     <span className="text-muted block">Total Quoted Value:</span>
-                    <span className="text-sm font-bold">Rs. {fmtMoney(analysis.totalSalePKR)}</span>
+                    <span className="text-sm font-bold">{fmtMoney(analysis.totalSalePKR)}</span>
                   </div>
                   <div>
                     <span className="text-muted block">Total Landed Costs:</span>
                     <span className="text-sm font-bold">
-                      Rs. {fmtMoney(analysis.totalPurchaseCostPKR + analysis.totalExtraCostsPKR + analysis.totalCommissionPKR)}
+                      {fmtMoney(analysis.totalPurchaseCostPKR + analysis.totalExtraCostsPKR + analysis.totalCommissionPKR)}
                     </span>
                   </div>
                   <div>
@@ -790,7 +790,7 @@ export function QuotationCostSheet({ data, set, col = "quotations" }: QuotationC
                   <div>
                     <span className="text-muted block">Net Take-Home Profit:</span>
                     <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
-                      Rs. {fmtMoney(analysis.netProfitPKR)} ({fmtPct(analysis.netMarginPct)})
+                      {fmtMoney(analysis.netProfitPKR)} ({fmtPct(analysis.netMarginPct)})
                     </span>
                   </div>
                 </div>
