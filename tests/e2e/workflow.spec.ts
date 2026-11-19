@@ -120,7 +120,7 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
   await nextStep(page, /Convert to sales order/, /^SO-\d{4}-0001/);
   await showTab(page, "Details");
   await field(page, /Incoterm/).selectOption("CIF");
-  await field(page, /Shipment date \(delivery\)/).fill("2026-03-10");
+  await field(page, /Delivery date \(promised\)/).fill("2026-03-10");
   await saveDrawer(page);
   await expectOverview(page, "Payment", "Unpaid");
 
@@ -128,7 +128,7 @@ test("Excel + conversation workflow through the UI", async ({ page }) => {
   await nextStep(page, /Issue PO to Grundfos ME/, /^PO-\d{4}-0001/);
   await expectOverview(page, "PO value", "PKR 1,000,000");
   await showTab(page, "Details");
-  await expect(field(page, /Supplier payment terms/)).toHaveValue("LC (Letter of Credit)");
+  await expect(field(page, /P\/O payment terms/)).toHaveValue("LC (Letter of Credit)");
   await nextStep(page, /Record payment to vendor/, /^PAY-\d{4}-0001/);
   await page.goBack();
   await page.goBack();

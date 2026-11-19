@@ -82,7 +82,8 @@ export function ModulePage(props: Props) {
 function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "records" }: Props) {
   const s = useStore();
   const m = MODULES[col];
-  const table = useTableColumns(col === "marketing" ? "marketing-client-contact-v2" : col, m.columns);
+  // Modules re-arranged to the client's sheet start from the new column order.
+  const table = useTableColumns(col === "marketing" ? "marketing-client-contact-v2" : ["rfqs", "quotations", "salesOrders", "purchaseOrders"].includes(col) ? `${col}-client-sheet-v1` : col, m.columns);
   const tableRef = useRef<HTMLTableElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const columnDrag = useColumnDrag(tableRef, viewportRef, table.move);

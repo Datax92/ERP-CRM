@@ -9,7 +9,7 @@ import type { CollectionName, Rec } from "@/lib/types";
 
 /**
  * The client's Calculation Sheet (landed cost → total expenses → net margin),
- * its own tab in quotations and purchase orders. Stored on the record as `calcSheet`.
+ * its own tab in quotations, sales orders and purchase orders. Stored on the record as `calcSheet`.
  */
 export function CalculationSheet({ data, set, col }: { data: Rec; set: (patch: Partial<Rec>) => void; col: CollectionName }) {
   const s = useStore();
@@ -39,6 +39,8 @@ export function CalculationSheet({ data, set, col }: { data: Rec; set: (patch: P
         exWorks: next.exWorks ?? null,
         saleValue: next.saleValue ?? null,
         landedCost: res.landedCost,
+        fobValue: res.fobValue,
+        cfrValue: res.cfrValue,
         totalExpenses: res.totalExpenses,
         netMargin: res.netMargin,
         netMarginPct: res.netMarginPct,
@@ -109,7 +111,7 @@ export function CalculationSheet({ data, set, col }: { data: Rec; set: (patch: P
             <tr>
               <td />
               <td>Sale value</td>
-              <td className="basis">{amountInput("saleValue", defaultSale, "Sale value")}<small>{col === "purchaseOrders" ? "From the linked sales order" : "From the offered price"}</small></td>
+              <td className="basis">{amountInput("saleValue", defaultSale, "Sale value")}<small>{col === "purchaseOrders" ? "From the linked sales order" : col === "salesOrders" ? "From the order's selling prices" : "From the offered price"}</small></td>
               <td className="r">{fmtNum(r.saleValue, 2)}</td>
             </tr>
             <tr className={`result ${r.netMargin < 0 ? "loss" : ""}`}>

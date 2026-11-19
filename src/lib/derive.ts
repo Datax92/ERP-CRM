@@ -268,3 +268,35 @@ export function bestSupplierPrices(s: Store) {
   return current.filter((p) => !current.some((other) => other.product === p.product && other.brand === p.brand && other.unitCostPKR < p.unitCostPKR));
 }
 export const priceLabel = (p: { product: string; brand: string }) => [p.product, p.brand].filter(Boolean).join(' · ');
+
+// ---------- Deal chain (RFQ → quotation → sales order → purchase orders) ----------
+/** The RFQ, quotation and sales order a document belongs to, found through its links. */
+export function dealLinks(col: CollectionName, r: Rec, s: Store) {
+  const get = (c: CollectionName, id?: string) => (id ? s.byId[c].get(id) : undefined);
+  let rfq = col === "rfqs" ? r : undefined;
+  let quote = col === "quotations" ? r : undefined;
+  let so = col === "salesOrders" ? r : undefined;
+  if (col === "purchaseOrders") so = get("salesOrders", r.salesOrderId);
+  if (so && !quote) quote = get("quotations", so.quotationId);
+  if (quote && !rfq) rfq = get("rfqs", quote.rfqId);
+  if (rfq && !quote) quote = s.quotations.find((q) => q.rfqId === rfq!.id);
+  if (quote && !so) so = s.salesOrders.find((o) => o.quotationId === quote!.id && o.status !== "Cancelled");
+  return { rfq, quote, so };
+}
+
+/** The sales department's reference that follows a deal: the nearest one typed along the chain. */
+export function salesRefOf(col: CollectionName, r: Rec, s: Store): string {
+  if (r.salesRef) return r.salesRef;
+  const { rfq, quote, so } = dealLinks(col, r, s);
+  return so?.salesRef || quote?.salesRef || rfq?.salesRef || "";
+}
+
+/** Vendor payment across a sales order's live purchase orders. */
+export function vendorPaymentOf(so: Rec, s: Store) {
+  const pos = s.purchaseOrders.filter((p) => p.salesOrderId === so.id && p.status !== "Cancelled");
+  if (!pos.length) return "No PO";
+  const st = pos.map((p) => poInfo(p, s).payment);
+  if (st.every((x) => x === "Paid")) return "Paid";
+  if (st.every((x) => x === "Unpaid" || x === "—")) return "Unpaid";
+  return "Partially paid";
+}

@@ -63,6 +63,10 @@ export type CalcSheetResult = {
   amounts: Record<CalcHeadKey, number>;
   totalExpenses: number;
   landedCost: number;
+  /** Ex-works plus packing, inland transport, export declaration and FOB charges. */
+  fobValue: number;
+  /** FOB plus sea/air freight. */
+  cfrValue: number;
   netMargin: number;
   netMarginPct: number;
 };
@@ -101,5 +105,7 @@ export function computeCalcSheet(input: CalcSheetInput | undefined, defaults: { 
   const totalExpenses = CALC_HEADS.reduce((sum, h) => sum + amounts[h.key], 0);
   const landedCost = exWorks + totalExpenses;
   const netMargin = saleValue - landedCost;
-  return { exWorks, saleValue, amounts, totalExpenses, landedCost, netMargin, netMarginPct: saleValue ? (netMargin / saleValue) * 100 : 0 };
+  const fobValue = exWorks + amounts.packing + amounts.inland + amounts.exportDecl + amounts.fob;
+  const cfrValue = fobValue + amounts.freight;
+  return { exWorks, saleValue, amounts, totalExpenses, landedCost, fobValue, cfrValue, netMargin, netMarginPct: saleValue ? (netMargin / saleValue) * 100 : 0 };
 }

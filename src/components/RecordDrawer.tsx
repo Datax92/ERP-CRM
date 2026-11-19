@@ -42,7 +42,7 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
     ...(existing ? [{ key: "overview" as const, label: "Overview" }] : []),
     { key: "details", label: "Details" },
     ...(itemsModeForTabs ? [{ key: "items" as const, label: `Items${data.items?.length ? ` (${data.items.length})` : ""}` }] : []),
-    ...(col === "quotations" || col === "purchaseOrders" ? [{ key: "costSheet" as const, label: "Cost sheet" }] : []),
+    ...(col === "quotations" || col === "salesOrders" || col === "purchaseOrders" ? [{ key: "costSheet" as const, label: "Cost sheet" }] : []),
     ...(col === "quotations" || col === "salesOrders" || col === "costSheets" ? [{ key: "margin" as const, label: "Margin analysis", badge: data.netMarginPct !== undefined ? fmtPct(data.netMarginPct) : undefined }] : []),
     { key: "files", label: `Files${data.attachments?.length ? ` (${data.attachments.length})` : ""}` },
   ];
@@ -160,10 +160,10 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
               </div>
               {(() => { const last = latestMarketingContact(data, s.marketing); return last ? <p className="mt-3 text-xs text-muted">Latest contact: {fmtDate(contactDate(last))} · {marketingChannelName(last.channel)} · {contactDetails(last) || "No details recorded"}</p> : <p className="mt-3 text-xs text-muted">No previous contact recorded for this client.</p>; })()}
             </Section>}
-            <Section title="Details">
+            {fieldSections(fields.filter((f) => f.type !== "items" && (!f.showIf || f.showIf(data)))).map((sec) => (
+            <Section key={sec.title} title={sec.title}>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {fields
-                  .filter((f) => f.type !== "items" && (!f.showIf || f.showIf(data)))
+                {sec.fields
                   .map((f) => (
                     <label key={f.name} className={`block space-y-1 text-sm ${f.wide || f.type === "textarea" || f.type === "multiselect" ? "sm:col-span-2 lg:col-span-3" : ""}`}>
                       <span className="text-muted">
@@ -176,6 +176,7 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
                   ))}
               </div>
             </Section>
+            ))}
             {!itemsMode && (col === "payments" || col === "expenses" || col === "financeEntries" || col === "investors" || col === "companyDocs" || data.amount != null || (m.amountField && data[m.amountField] != null)) && (
               <Section title="Total Price & Currency Converter">
                 <TotalPriceConverter
@@ -218,6 +219,16 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
       </form>
     </Drawer>
   );
+}
+
+/** Details split into titled sections: a field with `section` starts a new one. */
+function fieldSections(fields: FieldDef[]) {
+  const out: { title: string; fields: FieldDef[] }[] = [];
+  for (const f of fields) {
+    if (!out.length || f.section) out.push({ title: f.section ?? "Details", fields: [] });
+    out[out.length - 1].fields.push(f);
+  }
+  return out;
 }
 
 /** New products/brands typed on a line item become filter options everywhere. */

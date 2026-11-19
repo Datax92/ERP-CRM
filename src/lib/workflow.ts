@@ -19,6 +19,9 @@ const copyItems = (items: LineItem[] | undefined, keepPrices: boolean): LineItem
 
 const carry = (r: Rec) => ({ attachments: r.attachments ?? [], notes: r.notes ?? "" });
 
+/** Sales tracking that follows a deal from RFQ to offer to sales order. */
+const track = (r: Rec) => ({ territory: r.territory ?? "", salesRef: r.salesRef ?? "" });
+
 /** Keep deal-cost assumptions when moving a cost sheet into the sales workflow. */
 const carryCosting = (r: Rec) => Object.fromEntries([
   'purchaseCurrency', 'purchaseExchangeRate', 'extraCosts', 'freightAmount', 'freightCurrency', 'freightRate', 'customsDutyAmount', 'customsCurrency', 'customsRate',
@@ -47,6 +50,7 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
             rfqId: r.id,
             region: r.region ?? "",
             sector: r.sector ?? "",
+            ...track(r),
             items: copyItems(r.items, false),
             ...carry(r),
           });
@@ -119,6 +123,10 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
             ...carryCosting(r),
             region: r.region ?? "",
             sector: r.sector ?? "",
+            ...track(r),
+            ...(r.budgetMarginPct !== undefined && r.budgetMarginPct !== "" ? { budgetMarginPct: r.budgetMarginPct } : {}),
+            // The offer's calculation sheet becomes the order's starting cost sheet.
+            ...(r.calcSheet ? { calcSheet: r.calcSheet } : {}),
             currency: r.currency,
             exchangeRate: r.exchangeRate,
             paymentTerms: r.paymentTerms ?? "",

@@ -101,6 +101,9 @@ export type Settings = {
   regions: string[];
   countries: string[];
   sectors: string[];
+  territories: string[];
+  departments: string[];
+  vendorNatures: string[];
   brands: string[];
   products: string[];
   units: string[];

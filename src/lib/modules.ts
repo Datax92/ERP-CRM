@@ -1,7 +1,8 @@
-import { computeCostSheet, emptyItem, fmtDate, fmtMoney, fmtNum, fmtPct, num, today } from "./calc";
-import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type Store } from "./derive";
+import { computeCostSheet, daysBetween, emptyItem, fmtDate, fmtMoney, fmtNum, fmtPct, itemTotals, num, rateOf, today } from "./calc";
+import { computeCalcSheet } from "./calcSheet";
+import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, dealLinks, deliveryInfo, piInfo, poInfo, salesRefOf, soInfo, supplierInfo, vendorPaymentOf, type Store } from "./derive";
 import { contactDate, contactDetails, latestMarketingContact, marketingChannelName, marketingStatus, MARKETING_STATUSES } from "./marketing";
-import { STAGES } from "./stages";
+import { STAGES, stageKind } from "./stages";
 import type { CollectionName, ItemsMode, ListKey, Rec } from "./types";
 
 export type FieldType =
@@ -29,6 +30,8 @@ export type FieldDef = {
   wide?: boolean;
   help?: string;
   showIf?: (data: Rec) => boolean;
+  /** Starts a new titled section on the Details tab. */
+  section?: string;
   /** Values copied into the form when this field changes (e.g. client → region, sector). */
   autofill?: (value: string, data: Rec, s: Store) => Partial<Rec>;
 };
@@ -149,6 +152,45 @@ const productFilter: FilterDef = {
 };
 const cur = () => ({ currency: "PKR", exchangeRate: 1, date: today() });
 
+// ---------- columns from the client's module sheets ----------
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const hasValue = (v: unknown) => v !== undefined && v !== null && v !== "";
+const uniq = (xs: unknown[]) => [...new Set(xs.filter(hasValue).map(String))];
+const created = (r: Rec): Cell => date(typeof r.createdAt === "string" ? r.createdAt.slice(0, 10) : "");
+const itemsText = (r: Rec): Cell => t(uniq((r.items ?? []).map((i: Rec) => i.description || i.product)).join(", "));
+const qtyOf = (r: Rec) => (r.items ?? []).reduce((a: number, i: Rec) => a + num(i.qty), 0);
+const qtyCell = (r: Rec): Cell => ({ text: fmtNum(qtyOf(r)), sort: qtyOf(r) });
+const makersOf = (items?: Rec[]) => uniq((items ?? []).map((i) => i.brand)).join(", ");
+const vendorsOf = (items: Rec[] | undefined, s: Store) => uniq((items ?? []).map((i) => s.byId.suppliers.get(i.supplierId)?.name)).join(", ");
+const pctCell = (v: unknown): Cell => (hasValue(v) ? { text: fmtPct(v), sort: num(v) } : t(""));
+const budgetOC = (r: Rec) => (num(r.amount) * num(r.budgetMarginPct)) / 100;
+/** The customer's RFQ number, with the ERP's own number underneath. */
+const rfqNo = (r: Rec): Cell => (r.clientRef ? { text: r.clientRef, subtext: r.serial } : t(r.serial));
+const lateCell = (l: { days: number; overdue: boolean } | null): Cell =>
+  l && l.days ? { text: `${l.days}d${l.overdue ? " overdue" : ""}`, tone: "bad", sort: l.days } : { text: "—", sort: 0 };
+/** Open while the status is an open stage; anything else (won, lost, cancelled) is closed. */
+const isOpen = (col: CollectionName, r: Rec) => !r.status || stageKind(col, r.status) === "open";
+const openClosed = (col: CollectionName, r: Rec): Cell => {
+  const open = isOpen(col, r);
+  return { text: open ? "Open" : "Closed", subtext: r.status && r.status !== "Open" ? r.status : undefined, tone: open ? "info" : stageKind(col, r.status) === "lost" ? "bad" : "good" };
+};
+const openClosedFilter = (col: CollectionName): FilterDef => ({ key: "openClosed", label: "Open / closed", options: () => ["Open", "Closed"], get: (r) => (isOpen(col, r) ? "Open" : "Closed") });
+const territoryFilter: FilterDef = { key: "territory", label: "Territory", options: (s) => uniq([...s.settings.territories, ...s.rfqs.map((r) => r.territory), ...s.quotations.map((r) => r.territory), ...s.salesOrders.map((r) => r.territory)]).sort(), get: (r) => r.territory ?? "" };
+/** The calculation sheet's figures, when one has been filled in. */
+function calcOf(r: Rec) {
+  const c = r.calcSheet;
+  if (!c || !(Object.values(c.rows ?? {}).some(hasValue) || hasValue(c.exWorks) || hasValue(c.saleValue))) return null;
+  return computeCalcSheet(c, { exWorks: itemTotals(r.items).totalCost, saleValue: num(r.amount) });
+}
+/** Days a delivered order has waited for the client's payment; "Paid" once settled. */
+function paymentAgeing(r: Rec, s: Store): Cell {
+  const i = soInfo(r, s);
+  if (i.payment === "Paid") return { text: "Paid", tone: "good", sort: -1 };
+  const days = i.deliveredDate ? daysBetween(i.deliveredDate, today()) : null;
+  if (days == null) return { text: "—", sort: -2 };
+  return { text: `${Math.max(0, days)} d`, sort: days, tone: days > 30 ? "bad" : undefined };
+}
+
 // ---------- modules ----------
 export const MODULES: Record<CollectionName, ModuleConfig> = {
   clients: {
@@ -229,6 +271,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     defaults: () => ({ brands: [], products: [] }),
     fields: [
       { name: "name", label: "Supplier name", type: "text", required: true },
+      { name: "nature", label: "Vendor nature", type: "select", list: "vendorNatures", help: "Manufacturer, distributor, trader, agent…" },
       { name: "jobTitle", label: "Job title", type: "text" },
       { name: "headOffice", label: "Head office", type: "text" },
       { name: "plant", label: "Plant / site", type: "text" },
@@ -261,6 +304,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "mobile", label: "Cell / mobile", cell: (r) => t(r.mobile) },
       { key: "whatsapp", label: "WhatsApp", cell: (r) => t(r.whatsapp) },
       { key: "phone", label: "Telephone", cell: (r) => t(r.phone) },
+      { key: "nature", label: "Vendor nature", cell: (r) => t(r.nature) },
       { key: "brands", label: "Brands", cell: (r) => t((r.brands ?? []).join(", ")) },
       { key: "products", label: "Products", cell: (r) => t((r.products ?? []).join(", ")) },
       { key: "purchased", label: "Purchased", align: "right", cell: (r, s) => money(supplierInfo(r, s).purchasedPKR) },
@@ -329,30 +373,40 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     href: "/rfqs",
     prefix: "RFQ",
     itemsMode: () => "basic",
-    searchKeys: ["serial", "clientRef", "notes"],
+    searchKeys: ["serial", "clientRef", "salesRef", "territory", "notes"],
     defaults: () => ({ date: today(), status: "Open", items: [] }),
     fields: [
-      { name: "date", label: "Inquiry date", type: "date", required: true },
-      { name: "clientId", label: "Client", type: "ref", ref: "clients", required: true, autofill: fromClient },
-      { name: "clientRef", label: "Client's inquiry / tender no.", type: "text" },
-      { name: "dueDate", label: "Submission due date", type: "date" },
-      { name: "region", label: "Region", type: "select", list: "regions" },
-      { name: "sector", label: "Sector", type: "select", list: "sectors" },
+      { name: "date", label: "RFQ date", type: "date", required: true, section: "Inquiry" },
+      { name: "clientId", label: "Customer", type: "ref", ref: "clients", required: true, autofill: fromClient },
+      { name: "clientRef", label: "Customer's RFQ / tender no.", type: "text" },
+      { name: "dueDate", label: "Closing date (submission due)", type: "date" },
       statusField("rfqs"),
+      { name: "region", label: "Region", type: "select", list: "regions", section: "Sales tracking" },
+      { name: "territory", label: "Territory", type: "select", list: "territories" },
+      { name: "sector", label: "Sector", type: "select", list: "sectors" },
+      { name: "salesRef", label: "Sale dept. ref.", type: "text", help: "Your sales department's reference. It follows the deal to the offer, sales order and PO." },
+      { name: "totalWeight", label: "Total weight", type: "text", help: "e.g. 1,250 kg" },
       { name: "items", label: "Items requested", type: "items", wide: true },
-      notes,
+      { ...notes, label: "Remarks", section: "Remarks" },
     ],
+    // Arranged as in the client's "RFQ Module" sheet.
     columns: [
-      { key: "serial", label: "RFQ no.", cell: (r) => t(r.serial) },
-      { key: "date", label: "Date", cell: (r) => date(r.date) },
-      { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
-      { key: "items", label: "Items", cell: (r) => t((r.items ?? []).map((i: Rec) => i.product || i.description).filter(Boolean).join(", ")) },
-      { key: "qty", label: "Qty", align: "right", cell: (r) => ({ text: String((r.items ?? []).reduce((a: number, i: Rec) => a + num(i.qty), 0)), sort: (r.items ?? []).reduce((a: number, i: Rec) => a + num(i.qty), 0) }) },
+      { key: "created", label: "Creation date", cell: created },
       { key: "region", label: "Region", cell: (r) => t(r.region) },
-      { key: "dueDate", label: "Due", cell: (r) => date(r.dueDate) },
-      { key: "status", label: "Status", cell: (r) => badge(r.status) },
+      { key: "territory", label: "Territory", cell: (r) => t(r.territory) },
+      { key: "sector", label: "Sector", cell: (r) => t(r.sector) },
+      { key: "client", label: "Customer", cell: (r, s) => t(clientName(r, s)) },
+      { key: "rfqNo", label: "RFQ no.", cell: (r) => rfqNo(r) },
+      { key: "date", label: "RFQ date", cell: (r) => date(r.date) },
+      { key: "description", label: "Description", cell: itemsText },
+      { key: "totalWeight", label: "Total weight", cell: (r) => t(r.totalWeight) },
+      { key: "qty", label: "Qty", align: "right", cell: qtyCell },
+      { key: "salesRef", label: "Sale dept. ref.", cell: (r) => t(r.salesRef) },
+      { key: "openClosed", label: "Status (open / close)", cell: (r) => openClosed("rfqs", r) },
+      { key: "dueDate", label: "Closing date", cell: (r) => date(r.dueDate) },
+      { key: "remarks", label: "Remarks", cell: (r) => t(r.notes) },
     ],
-    filters: [statusFilter("rfqs"), clientFilter, regionFilter, sectorFilter, productFilter],
+    filters: [openClosedFilter("rfqs"), statusFilter("rfqs"), clientFilter, regionFilter, territoryFilter, sectorFilter, productFilter],
   },
 
   quotations: {
@@ -362,48 +416,68 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     href: "/quotations",
     prefix: "QT",
     itemsMode: () => "sale",
-    searchKeys: ["serial", "notes", "feedback"],
+    searchKeys: ["serial", "salesRef", "territory", "origin", "statusRemarks", "notes", "feedback"],
     defaults: () => ({ ...cur(), status: "Draft", items: [] }),
     fields: [
-      { name: "date", label: "Quotation date", type: "date", required: true },
-      { name: "clientId", label: "Client", type: "ref", ref: "clients", required: true, autofill: fromClient },
+      { name: "date", label: "Offer date", type: "date", required: true, section: "Offer" },
+      { name: "clientId", label: "Customer", type: "ref", ref: "clients", required: true, autofill: fromClient },
       { name: "rfqId", label: "From RFQ", type: "ref", ref: "rfqs" },
       { name: "validUntil", label: "Valid until", type: "date" },
-      { name: "region", label: "Region", type: "select", list: "regions" },
+      statusField("quotations"),
+      { name: "statusRemarks", label: "Status remarks", type: "text" },
+      { name: "region", label: "Region", type: "select", list: "regions", section: "Sales tracking" },
+      { name: "territory", label: "Territory", type: "select", list: "territories" },
       { name: "sector", label: "Sector", type: "select", list: "sectors" },
-      { name: "currency", label: "Currency", type: "currency" },
+      { name: "salesRef", label: "Sales ref.", type: "text", help: "Carried over from the RFQ; it follows the deal to the sales order and PO." },
+      { name: "currency", label: "Currency", type: "currency", section: "Terms & margin" },
       { name: "paymentTerms", label: "Payment terms", type: "select", list: "paymentTerms" },
       { name: "incoterm", label: "Incoterm", type: "select", list: "incoterms" },
-      statusField("quotations"),
+      { name: "origin", label: "Origin", type: "select", list: "countries", help: "Country the goods are made in." },
+      { name: "budgetMarginPct", label: "Budget margin (%)", type: "number", help: "The margin budgeted for this offer. Shown as an amount in the offer currency (OC) and in PKR at the exchange rate (SER)." },
       { name: "items", label: "Items, costing & offered price", type: "items", wide: true },
-      ...followUpFields,
+      { ...followUpFields[0], section: "Follow-up" },
+      ...followUpFields.slice(1),
       notes,
     ],
+    // Arranged as in the client's "Offer Module" sheet; the last three are the ERP's own.
     columns: [
-      { key: "serial", label: "Quote no.", cell: (r) => t(r.serial) },
-      { key: "date", label: "Date", cell: (r) => date(r.date) },
-      { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
+      { key: "created", label: "Creation date", cell: created },
+      { key: "region", label: "Region", cell: (r) => t(r.region) },
+      { key: "territory", label: "Territory", cell: (r) => t(r.territory) },
+      { key: "sector", label: "Sector", cell: (r) => t(r.sector) },
+      { key: "client", label: "Customer", cell: (r, s) => t(clientName(r, s)) },
+      { key: "salesRef", label: "Sales ref.", cell: (r, s) => t(salesRefOf("quotations", r, s)) },
+      { key: "rfqRef", label: "RFQ ref. no.", cell: (r, s) => { const q = s.byId.rfqs.get(r.rfqId); return q ? rfqNo(q) : t(""); } },
+      { key: "rfqDate", label: "RFQ date", cell: (r, s) => date(s.byId.rfqs.get(r.rfqId)?.date) },
+      { key: "serial", label: "Offer no.", cell: (r) => t(r.serial) },
+      { key: "date", label: "Offer date", cell: (r) => date(r.date) },
+      { key: "incoterm", label: "Incoterm", cell: (r) => t(r.incoterm) },
+      { key: "paymentTerms", label: "Payment term", cell: (r) => t(r.paymentTerms) },
+      { key: "fob", label: "Total FOB value", align: "right", cell: (r) => { const c = calcOf(r); return c ? money(c.fobValue, r.currency) : t(""); } },
+      { key: "cfr", label: "Total CFR value", align: "right", cell: (r) => { const c = calcOf(r); return c ? money(c.cfrValue, r.currency) : t(""); } },
+      { key: "budgetMargin", label: "Budget margin", align: "right", cell: (r) => pctCell(r.budgetMarginPct) },
+      { key: "budgetMarginOC", label: "Budget margin (OC)", align: "right", cell: (r) => (hasValue(r.budgetMarginPct) ? money(budgetOC(r), r.currency) : t("")) },
+      { key: "budgetMarginSER", label: "Budget margin (SER)", align: "right", cell: (r) => (hasValue(r.budgetMarginPct) ? money(budgetOC(r) * rateOf(r)) : t("")) },
+      { key: "currency", label: "Currency", cell: (r) => t(r.currency) },
+      { key: "margin", label: "Margin", align: "right", cell: (r) => { const c = calcOf(r); const v = c ? c.netMargin : num(r.margin); const p = c ? c.netMarginPct : num(r.netMarginPct ?? r.marginPct); return { ...money(v, r.currency), subtext: fmtPct(p) }; } },
+      { key: "status", label: "Status", cell: (r) => badge(r.status) },
+      { key: "vendor", label: "Vendor", cell: (r, s) => t(vendorsOf(r.items, s)) },
+      { key: "company", label: "Company", cell: (r) => t(makersOf(r.items)) },
+      { key: "origin", label: "Origin", cell: (r) => t(r.origin) },
+      { key: "statusRemarks", label: "Status remarks", cell: (r) => t(r.statusRemarks) },
       { key: "total", label: "Total price", align: "right", cell: (r) => money(r.amount, r.currency, r.amountPKR) },
-      { key: "margin", label: "Gross Margin", align: "right", cell: (r) => money(r.margin, r.currency) },
       {
         key: "netMarginPct",
-        label: "Net Margin %",
+        label: "Net margin %",
         align: "right",
         cell: (r) => {
           const val = r.netMarginPct !== undefined ? r.netMarginPct : r.marginPct;
-          const isHealthy = num(val) >= 15;
-          const isWarning = num(val) <= 0;
-          return {
-            text: fmtPct(val),
-            sort: num(val),
-            tone: isHealthy ? "good" : isWarning ? "bad" : "muted",
-          };
+          return { text: fmtPct(val), sort: num(val), tone: num(val) >= 15 ? "good" : num(val) <= 0 ? "bad" : "muted" };
         },
       },
       { key: "followUp", label: "Follow-up", cell: (r) => badge(r.followUpStatus) },
-      { key: "status", label: "Status", cell: (r) => badge(r.status) },
     ],
-    filters: [statusFilter("quotations"), clientFilter, regionFilter, sectorFilter, productFilter, { key: "followUpStatus", label: "Follow-up", options: (s) => s.settings.followUpStatuses, get: (r) => r.followUpStatus ?? "" }],
+    filters: [statusFilter("quotations"), clientFilter, regionFilter, territoryFilter, sectorFilter, productFilter, { key: "followUpStatus", label: "Follow-up", options: (s) => s.settings.followUpStatuses, get: (r) => r.followUpStatus ?? "" }],
   },
 
   salesOrders: {
@@ -413,38 +487,83 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     href: "/sales-orders",
     prefix: "SO",
     itemsMode: () => "sale",
-    searchKeys: ["serial", "clientPoNo", "notes"],
+    searchKeys: ["serial", "clientPoNo", "salesRef", "territory", "department", "notes"],
     defaults: () => ({ ...cur(), status: "Open", items: [] }),
+    // Target year / month default to the order date; a closed order records when it closed.
+    compute: (d) => ({
+      ...(!d.targetYear && d.date ? { targetYear: Number(String(d.date).slice(0, 4)) } : {}),
+      ...(!d.targetMonth && d.date ? { targetMonth: MONTHS[Number(String(d.date).slice(5, 7)) - 1] ?? "" } : {}),
+      ...(d.status && stageKind("salesOrders", d.status) !== "open" && !d.closingDate ? { closingDate: today() } : {}),
+    }),
     fields: [
-      { name: "date", label: "Order date", type: "date", required: true },
-      { name: "clientId", label: "Client", type: "ref", ref: "clients", required: true, autofill: fromClient },
-      { name: "quotationId", label: "From quotation", type: "ref", ref: "quotations" },
+      { name: "date", label: "Sale order date", type: "date", required: true, section: "Order" },
+      { name: "clientId", label: "Customer", type: "ref", ref: "clients", required: true, autofill: fromClient },
+      { name: "department", label: "Department", type: "select", list: "departments", help: "The customer's department placing the order." },
+      { name: "quotationId", label: "From quotation (offer)", type: "ref", ref: "quotations" },
       { name: "clientPoNo", label: "Client's PO number", type: "text" },
       { name: "clientPoDate", label: "Client's PO date", type: "date" },
-      { name: "region", label: "Region", type: "select", list: "regions" },
+      statusField("salesOrders"),
+      { name: "closingDate", label: "Closing date", type: "date", help: "Filled in when the order is delivered, closed or cancelled." },
+      { name: "region", label: "Region", type: "select", list: "regions", section: "Sales tracking" },
+      { name: "territory", label: "Territory", type: "select", list: "territories" },
       { name: "sector", label: "Sector", type: "select", list: "sectors" },
-      { name: "currency", label: "Currency", type: "currency" },
+      { name: "salesRef", label: "Sale dept. ref.", type: "text" },
+      { name: "targetYear", label: "Target year", type: "number", help: "Sales target this order counts toward. Defaults to the order date." },
+      { name: "targetMonth", label: "Target month", type: "select", options: MONTHS },
+      { name: "budgetMarginPct", label: "Budget margin (%)", type: "number" },
+      { name: "currency", label: "S/O currency", type: "currency", section: "Terms & delivery" },
       { name: "paymentTerms", label: "Client payment terms", type: "select", list: "paymentTerms" },
       { name: "incoterm", label: "Incoterm", type: "select", list: "incoterms" },
       { name: "shipmentOriginDate", label: "Shipment date (origin)", type: "date" },
-      { name: "expectedDeliveryDate", label: "Shipment date (delivery) — promised", type: "date" },
-      statusField("salesOrders"),
+      { name: "expectedDeliveryDate", label: "Delivery date (promised)", type: "date" },
+      { name: "lcShipmentDate", label: "LC shipment date", type: "date" },
+      { name: "warranty", label: "Warranty", type: "text", help: "e.g. 12 months from delivery" },
+      { name: "totalWeight", label: "Total weight", type: "text" },
       { name: "items", label: "Items", type: "items", wide: true },
-      ...followUpFields,
-      notes,
+      { ...followUpFields[0], section: "Follow-up" },
+      ...followUpFields.slice(1),
+      { ...notes, label: "Remarks" },
     ],
+    // Arranged as in the client's sheet (the block of S/O fields); the last three are the ERP's own.
     columns: [
-      { key: "serial", label: "SO no.", cell: (r) => t(r.serial) },
-      { key: "date", label: "Date", cell: (r) => date(r.date) },
-      { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
-      { key: "total", label: "Total", align: "right", cell: (r) => money(r.amount, r.currency, r.amountPKR) },
+      { key: "created", label: "Creation date", cell: created },
+      { key: "region", label: "Region", cell: (r) => t(r.region) },
+      { key: "territory", label: "Territory", cell: (r) => t(r.territory) },
+      { key: "sector", label: "Sector", cell: (r) => t(r.sector) },
+      { key: "client", label: "Customer", cell: (r, s) => t(clientName(r, s)) },
+      { key: "rfqNo", label: "RFQ no.", cell: (r, s) => { const q = dealLinks("salesOrders", r, s).rfq; return q ? rfqNo(q) : t(""); } },
+      { key: "rfqDate", label: "RFQ date", cell: (r, s) => date(dealLinks("salesOrders", r, s).rfq?.date) },
+      { key: "description", label: "Description", cell: itemsText },
+      { key: "totalWeight", label: "Total weight", cell: (r, s) => t(r.totalWeight || dealLinks("salesOrders", r, s).rfq?.totalWeight) },
+      { key: "qty", label: "Qty", align: "right", cell: qtyCell },
+      { key: "salesRef", label: "Sale dept. ref.", cell: (r, s) => t(salesRefOf("salesOrders", r, s)) },
+      { key: "openClosed", label: "Status (open / close)", cell: (r) => openClosed("salesOrders", r) },
+      { key: "closingDate", label: "Closing date", cell: (r) => date(r.closingDate) },
+      { key: "remarks", label: "Remarks", cell: (r) => t(r.notes) },
+      { key: "department", label: "Department", cell: (r) => t(r.department) },
+      { key: "total", label: "S/O amount", align: "right", cell: (r) => money(r.amount, r.currency, r.amountPKR) },
+      { key: "expectedDeliveryDate", label: "Delivery date", cell: (r) => date(r.expectedDeliveryDate) },
+      { key: "paymentAgeing", label: "Payment due ageing", align: "right", cell: (r, s) => paymentAgeing(r, s) },
+      { key: "serial", label: "S/O ref. no.", cell: (r) => ({ text: r.serial || "—", subtext: r.clientPoNo ? `Client PO ${r.clientPoNo}` : undefined }) },
+      { key: "budgetMargin", label: "Budget margin", align: "right", cell: (r) => pctCell(r.budgetMarginPct) },
+      { key: "paymentTerms", label: "Payment term", cell: (r) => t(r.paymentTerms) },
+      { key: "incoterm", label: "Incoterm", cell: (r) => t(r.incoterm) },
+      { key: "currency", label: "S/O currency", cell: (r) => t(r.currency) },
+      { key: "deliveryFinal", label: "S/O delivery final", cell: (r, s) => date(soInfo(r, s).deliveredDate) },
+      { key: "lcShipmentDate", label: "LC shipment date", cell: (r) => date(r.lcShipmentDate) },
+      { key: "offerRef", label: "Offer ref. no.", cell: (r, s) => t(s.byId.quotations.get(r.quotationId)?.serial) },
+      { key: "date", label: "Sale order date", cell: (r) => date(r.date) },
+      { key: "targetYear", label: "Target year", cell: (r) => t(r.targetYear || String(r.date ?? "").slice(0, 4)) },
+      { key: "targetMonth", label: "Target month", cell: (r) => t(r.targetMonth || (r.date ? MONTHS[Number(String(r.date).slice(5, 7)) - 1] : "")) },
+      { key: "late", label: "S/O delivery ageing", align: "right", cell: (r, s) => lateCell(soInfo(r, s).late) },
+      { key: "maker", label: "Maker", cell: (r) => t(makersOf(r.items)) },
+      { key: "vendor", label: "Vendor", cell: (r, s) => { const i = soInfo(r, s); return t(i.suppliers.join(", ") || vendorsOf(r.items, s)); } },
+      { key: "vendorPayment", label: "Vendor payment status", cell: (r, s) => badge(vendorPaymentOf(r, s)) },
       { key: "marginPct", label: "Margin %", align: "right", cell: (r) => ({ text: fmtPct(r.marginPct), sort: num(r.marginPct) }) },
-      { key: "po", label: "PO to supplier", cell: (r, s) => { const i = soInfo(r, s); return i.poIssued ? { text: i.suppliers.join(", ") || "Issued", tone: "good" } : { text: "Not issued", tone: "muted" }; } },
-      { key: "payment", label: "Payment", cell: (r, s) => badge(soInfo(r, s).payment) },
-      { key: "late", label: "Late", align: "right", cell: (r, s) => { const l = soInfo(r, s).late; return l && l.days ? { text: `${l.days}d${l.overdue ? " overdue" : ""}`, tone: "bad", sort: l.days } : { text: "—", sort: 0 }; } },
-      { key: "status", label: "Status", cell: (r) => badge(r.status) },
+      { key: "payment", label: "Client payment", cell: (r, s) => badge(soInfo(r, s).payment) },
+      { key: "warranty", label: "Warranty", cell: (r) => t(r.warranty) },
     ],
-    filters: [statusFilter("salesOrders"), clientFilter, regionFilter, sectorFilter, productFilter, { key: "payment", label: "Payment", options: () => ["Unpaid", "Partially paid", "Paid"], get: (r, s) => soInfo(r, s).payment }],
+    filters: [openClosedFilter("salesOrders"), statusFilter("salesOrders"), clientFilter, regionFilter, territoryFilter, sectorFilter, productFilter, { key: "payment", label: "Client payment", options: () => ["Unpaid", "Partially paid", "Paid"], get: (r, s) => soInfo(r, s).payment }, { key: "vendorPayment", label: "Vendor payment", options: () => ["No PO", "Unpaid", "Partially paid", "Paid"], get: (r, s) => vendorPaymentOf(r, s) }],
   },
 
   purchaseOrders: {
@@ -457,39 +576,55 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     searchKeys: ["serial", "supplierRef", "notes"],
     defaults: () => ({ ...cur(), status: "Draft", items: [], orderConfirmed: false }),
     fields: [
-      { name: "date", label: "PO date", type: "date", required: true },
-      { name: "supplierId", label: "Supplier", type: "ref", ref: "suppliers", required: true, autofill: (id, _d, s) => ({ paymentTerms: s.byId.suppliers.get(id)?.paymentTerms ?? "" }) },
+      { name: "date", label: "P/O date", type: "date", required: true, section: "Purchase order" },
+      { name: "supplierId", label: "Vendor (supplier)", type: "ref", ref: "suppliers", required: true, autofill: (id, _d, s) => ({ paymentTerms: s.byId.suppliers.get(id)?.paymentTerms ?? "" }) },
       { name: "salesOrderId", label: "For sales order", type: "ref", ref: "salesOrders" },
       { name: "supplierRef", label: "Supplier's reference / PI no.", type: "text" },
-      { name: "currency", label: "Currency", type: "currency" },
-      { name: "paymentTerms", label: "Supplier payment terms", type: "select", list: "paymentTerms" },
+      statusField("purchaseOrders"),
+      { name: "currency", label: "Currency", type: "currency", section: "Terms" },
+      { name: "paymentTerms", label: "P/O payment terms", type: "select", list: "paymentTerms" },
       { name: "incoterm", label: "Incoterm", type: "select", list: "incoterms" },
-      { name: "orderConfirmed", label: "Order confirmed by supplier", type: "checkbox" },
+      { name: "orderConfirmed", label: "Order confirmed by supplier", type: "checkbox", section: "Delivery" },
       { name: "confirmationDate", label: "Confirmation date", type: "date", showIf: (d) => !!d.orderConfirmed },
       { name: "deliveryPeriodDays", label: "Delivery period (days)", type: "number" },
       { name: "shipmentOriginDate", label: "Shipment date (origin)", type: "date" },
-      { name: "expectedArrivalDate", label: "Expected arrival", type: "date" },
+      { name: "expectedArrivalDate", label: "P/O delivery date (expected arrival)", type: "date" },
       { name: "actualArrivalDate", label: "Actual arrival", type: "date" },
-      statusField("purchaseOrders"),
       { name: "items", label: "Items & cost", type: "items", wide: true },
-      ...followUpFields,
+      { ...followUpFields[0], section: "Follow-up" },
+      ...followUpFields.slice(1),
       notes,
     ],
+    // Arranged as in the client's "P/O To Supplier Module" sheet; the last three are the ERP's own.
     columns: [
-      { key: "serial", label: "PO no.", cell: (r) => t(r.serial) },
-      { key: "date", label: "Date", cell: (r) => date(r.date) },
-      { key: "supplier", label: "Supplier", cell: (r, s) => t(supplierName(r, s)) },
-      { key: "so", label: "Sales order", cell: (r, s) => t(s.byId.salesOrders.get(r.salesOrderId)?.serial) },
+      { key: "created", label: "Creation date", cell: created },
+      { key: "vendorName", label: "Vendor name", cell: (r, s) => t(s.byId.suppliers.get(r.supplierId)?.contactPerson) },
+      { key: "description", label: "Description", cell: itemsText },
+      { key: "supplier", label: "Vendor company", cell: (r, s) => t(supplierName(r, s)) },
+      { key: "so", label: "SO ref. no.", cell: (r, s) => t(s.byId.salesOrders.get(r.salesOrderId)?.serial) },
+      { key: "salesRef", label: "Sales ref. no.", cell: (r, s) => t(salesRefOf("purchaseOrders", r, s)) },
+      { key: "paidAdvance", label: "Paid advance (OC)", align: "right", cell: (r, s) => money(poInfo(r, s).paid, r.currency) },
+      { key: "terms", label: "P/O payment term", cell: (r) => t(r.paymentTerms) },
+      { key: "vendorPayment", label: "Vendor payment status", cell: (r, s) => badge(poInfo(r, s).payment) },
+      { key: "soMaker", label: "S/O maker", cell: (r, s) => t(makersOf(s.byId.salesOrders.get(r.salesOrderId)?.items) || makersOf(r.items)) },
+      { key: "soWarranty", label: "S/O warranty", cell: (r, s) => t(s.byId.salesOrders.get(r.salesOrderId)?.warranty) },
+      { key: "soLate", label: "S/O delivery date ageing", align: "right", cell: (r, s) => { const so = s.byId.salesOrders.get(r.salesOrderId); return so ? lateCell(soInfo(so, s).late) : t(""); } },
+      { key: "shipmentOriginDate", label: "Shipment date", cell: (r) => date(r.shipmentOriginDate) },
+      { key: "serial", label: "P/O no.", cell: (r) => t(r.serial) },
+      { key: "date", label: "P/O date", cell: (r) => date(r.date) },
+      { key: "expectedArrivalDate", label: "P/O delivery date", cell: (r) => date(r.expectedArrivalDate) },
+      { key: "soDelivery", label: "S/O delivery date", cell: (r, s) => date(s.byId.salesOrders.get(r.salesOrderId)?.expectedDeliveryDate) },
+      { key: "vendorNature", label: "Vendor nature", cell: (r, s) => t(s.byId.suppliers.get(r.supplierId)?.nature) },
+      { key: "soDate", label: "S/O date", cell: (r, s) => date(s.byId.salesOrders.get(r.salesOrderId)?.date) },
       { key: "total", label: "Total cost", align: "right", cell: (r) => money(r.amount, r.currency, r.amountPKR) },
-      { key: "terms", label: "Terms", cell: (r) => t(r.paymentTerms) },
-      { key: "vendorPayment", label: "Vendor payment", cell: (r, s) => badge(poInfo(r, s).payment) },
-      { key: "late", label: "Late", align: "right", cell: (r, s) => { const l = poInfo(r, s).late; return l && l.days ? { text: `${l.days}d${l.overdue ? " overdue" : ""}`, tone: "bad", sort: l.days } : { text: "—", sort: 0 }; } },
+      { key: "late", label: "P/O late", align: "right", cell: (r, s) => lateCell(poInfo(r, s).late) },
       { key: "status", label: "Status", cell: (r) => badge(r.status) },
     ],
     filters: [
       statusFilter("purchaseOrders"),
       clientFilter,
-      { key: "supplierId", label: "Supplier", options: (s) => [...new Set(s.suppliers.map((x) => String(x.name)))].sort(), get: (r, s) => supplierName(r, s) },
+      { key: "supplierId", label: "Vendor", options: (s) => [...new Set(s.suppliers.map((x) => String(x.name)))].sort(), get: (r, s) => supplierName(r, s) },
+      { key: "vendorNature", label: "Vendor nature", options: (s) => s.settings.vendorNatures, get: (r, s) => s.byId.suppliers.get(r.supplierId)?.nature ?? "" },
       productFilter,
       { key: "vendorPayment", label: "Vendor payment", options: () => ["Unpaid", "Partially paid", "Paid"], get: (r, s) => poInfo(r, s).payment },
     ],
