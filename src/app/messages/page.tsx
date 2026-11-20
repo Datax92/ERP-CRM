@@ -181,7 +181,7 @@ function Compose({ onSent }: { onSent: () => void }) {
       {linkLabel && <p className="text-xs text-muted">Linked to {linkLabel}</p>}
       <label className="block space-y-1 text-sm">
         <span className="text-muted">Message</span>
-        <textarea className="field min-h-48" value={body} onChange={(e) => setBody(e.target.value)} />
+        <textarea className="field" style={{ minHeight: 220, height: "auto" }} rows={9} value={body} onChange={(e) => setBody(e.target.value)} />
       </label>
       {err && <p className="text-sm text-bad">{err}</p>}
       <button type="submit" className="btn btn-primary" disabled={busy || !s.inbox.ready}><Send size={14} /> {busy ? "Sending…" : "Send"}</button>
