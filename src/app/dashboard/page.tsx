@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useStore } from "@/components/DataProvider";
-import { BarsChart, ChartCard } from "@/components/charts";
+import { BarsChart, ChartCard, SimpleTable } from "@/components/charts";
 import { PipelineRoute } from "@/components/TradeRoute";
 import { RecordLink } from "@/components/RecordDrawer";
 import { AppIcon } from "@/components/AppIcons";
 import { Badge } from "@/components/ui";
 import { daysFromToday, fmtCompact, fmtDate, fmtMoney, lateness, num, rateOf, today } from "@/lib/calc";
-import { clientInfo, piInfo, poInfo, soInfo } from "@/lib/derive";
+import { clientInfo, piInfo, poInfo, shipmentInfo, soInfo } from "@/lib/derive";
 import { plLines, sumPL, outstandingReceivables } from "@/lib/finance";
 import { companyDocStatus, labelOf, MODULES } from "@/lib/modules";
-import { monthlyMeasures } from "@/lib/report";
+import { monthly as monthlyCounts, monthlyMeasures } from "@/lib/report";
+import { STANDARD_REPORTS } from "@/lib/standardReports";
+import { FEATURES } from "@/lib/features";
 import { stageKind } from "@/lib/stages";
 import type { CollectionName, Rec } from "@/lib/types";
 
@@ -69,6 +71,19 @@ export default function Dashboard() {
   const receivable = outstandingReceivables(s);
   const profit = sumPL(plLines(s, "orders").filter((line) => line.date.startsWith(year)));
 
+  // Customer analysis, payments, shipments and messages.
+  const customers = STANDARD_REPORTS.find((r) => r.key === "customerAnalysis")!.run(s, {}).rows.slice(0, 8);
+  const liveSos = s.salesOrders.filter((o) => o.status !== "Cancelled");
+  const soTotal = liveSos.reduce((a, o) => a + num(o.amountPKR), 0);
+  const soPaid = liveSos.reduce((a, o) => a + soInfo(o, s).received * rateOf(o), 0);
+  const partly = liveSos.filter((o) => soInfo(o, s).payment === "Partially paid").length;
+  const shipments = s.shipments.filter((x) => x.status !== "Cancelled" && !shipmentInfo(x, s).delivered);
+  const unread = s.inbox.messages.filter((m) => m.toUid === s.user.uid && !m.readAt && !m.archivedByTo);
+  const docsFlow = monthlyCounts(
+    [...s.rfqs.map((r) => ({ ...r, kind: "RFQs" })), ...s.quotations.map((r) => ({ ...r, kind: "Quotations" })), ...liveSos.map((r) => ({ ...r, kind: "Sales orders" }))],
+    { split: (r) => r.kind, series: ["RFQs", "Quotations", "Sales orders"] },
+  ).slice(-12);
+
   return (
     <div>
       <div className="dhero mt-4">
@@ -89,6 +104,8 @@ export default function Dashboard() {
             { label: 'Payables', value: fmtCompact(payable), sub: 'PKR to suppliers', icon: 'finance', href: '/purchase-orders' },
             { label: 'Open RFQs', value: String(openRfqs.length), sub: 'Client inquiries', icon: 'projects', href: '/rfqs' },
             { label: 'Inactive clients', value: String(inactive), sub: 'Follow up with clients', icon: 'agents', href: '/clients' },
+            { label: 'Open quotations', value: String(openQuotes.length), sub: 'Offers awaiting reply', icon: 'proforma', href: '/quotations' },
+            { label: 'Shipments on the way', value: String(shipments.length), sub: `${shipments.filter((x) => shipmentInfo(x, s).missing.length).length} missing documents`, icon: 'shipment', href: '/shipments' },
           ].map((metric) => <Link key={metric.label} href={metric.href} className="dfig"><span className="dfig-ic"><AppIcon name={metric.icon} size={32} /></span><span className="dfig-t"><span className="k">{metric.label}</span><b className="v">{metric.value}</b><span className="f">{metric.sub}</span></span></Link>)}
         </div>
       </div>
@@ -206,6 +223,58 @@ export default function Dashboard() {
                 .map((p) => ({ col: "proformaInvoices" as const, r: p, note: `payment overdue · ${fmtMoney(p.amount, p.currency)}`, tone: "bad" as const })),
             ]}
           />
+        </ChartCard>
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <ChartCard title="Customer analysis" subtitle="RFQs, quotations, sales orders and business total per customer" className="lg:col-span-2">
+          <SimpleTable
+            head={["Customer", "RFQs", "Quotations", "Sales orders", "Business PKR", "Outstanding PKR"]}
+            empty="No customer business yet."
+            rows={customers.map((r) => [
+              <RecordLink key={r.link!.id} col="clients" id={r.link!.id}>{String(r.cells[0])}</RecordLink>,
+              String(r.cells[3]),
+              String(r.cells[4]),
+              String(r.cells[6]),
+              fmtCompact(r.cells[8]),
+              fmtCompact(r.cells[10]),
+            ])}
+          />
+          <p className="mt-3 text-xs"><Link className="text-accent hover:underline" href="/reports?r=customerAnalysis">Full customer analysis report →</Link></p>
+        </ChartCard>
+        <ChartCard title="Payments" subtitle="All live sales orders, PKR">
+          <dl className="dpay">
+            <div><dt>Total payment</dt><dd>{fmtMoney(soTotal, "PKR")}</dd></div>
+            <div><dt>Received</dt><dd className="text-good">{fmtMoney(soPaid, "PKR")}</dd></div>
+            <div><dt>Remaining</dt><dd className="text-bad">{fmtMoney(Math.max(0, soTotal - soPaid), "PKR")}</dd></div>
+            <div><dt>Partially paid orders</dt><dd>{partly}</dd></div>
+            <div><dt>Payable to suppliers</dt><dd>{fmtMoney(payable, "PKR")}</dd></div>
+          </dl>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-2" title={`${soTotal ? Math.round((soPaid / soTotal) * 100) : 0}% received`}>
+            <div className="h-2 rounded-full bg-good" style={{ width: `${soTotal ? Math.min(100, (soPaid / soTotal) * 100) : 0}%` }} />
+          </div>
+          <p className="mt-3 text-xs"><Link className="text-accent hover:underline" href="/payments?tab=reports">Payment balances →</Link></p>
+        </ChartCard>
+        <ChartCard title="RFQs, quotations and orders" subtitle="Documents per month, last 12 months" className="lg:col-span-2">
+          <BarsChart data={docsFlow} series={[{ key: "RFQs", label: "RFQs" }, { key: "Quotations", label: "Quotations" }, { key: "Sales orders", label: "Sales orders" }]} />
+        </ChartCard>
+        <ChartCard title={FEATURES.messaging ? "Shipments & messages" : "Shipments on the way"} subtitle={FEATURES.messaging ? `${shipments.length} shipments on the way · ${unread.length} unread messages` : `${shipments.length} shipments not yet delivered`}>
+          {shipments.length === 0 ? <p className="text-sm text-muted">No shipment on the way.</p> : (
+            <ul className="divide-y divide-line text-sm">
+              {shipments.slice(0, 5).map((x) => { const i = shipmentInfo(x, s); return (
+                <li key={x.id} className="flex items-center justify-between gap-2 py-2">
+                  <RecordLink col="shipments" id={x.id}>{labelOf("shipments", x, s)}</RecordLink>
+                  <Badge tone={i.late?.overdue ? "bad" : "info"}>{i.late?.overdue ? `${i.late.days}d late` : x.status}</Badge>
+                </li>
+              ); })}
+            </ul>
+          )}
+          {FEATURES.messaging && <div className="mt-3 border-t border-line pt-3">
+            {unread.length === 0 ? <p className="text-sm text-muted">No unread messages.</p> : unread.slice(0, 4).map((m) => (
+              <Link key={m.id} href={`/messages?m=${m.id}`} className="block truncate py-1 text-sm hover:text-accent"><b>{m.fromName || m.fromEmail}</b> · {m.subject || "(no subject)"}</Link>
+            ))}
+            <Link href="/messages" className="mt-1 inline-block text-xs text-accent hover:underline">Open messages →</Link>
+          </div>}
         </ChartCard>
       </div>
     </div>

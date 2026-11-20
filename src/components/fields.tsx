@@ -451,16 +451,30 @@ function Stat({ label, value, strong, bad }: { label: string; value: string; str
   );
 }
 
+/** Order documents with a name each — Client PO, Supplier proforma invoice, RFQ… — numbered 1, 2, 3. */
 export function Attachments({ col, recordId, value, onChange }: { col: CollectionName; recordId: string; value: Attachment[]; onChange: (v: Attachment[]) => void }) {
   const { settings } = useStore();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(0);
   const [err, setErr] = useState("");
+  const [label, setLabel] = useState("");
+  const [custom, setCustom] = useState("");
   const list = value ?? [];
+  const names = settings.attachmentNames;
+  const attached = new Set(list.map((a) => a.label).filter(Boolean));
 
-  async function upload(files: FileList | null) {
+  /** The name the next upload gets; a newly typed name joins the list for next time. */
+  async function nameForUpload() {
+    if (label !== NEW) return label;
+    const v = custom.trim();
+    if (v && !names.includes(v)) await saveSettings({ ...settings, attachmentNames: [...names, v] }).catch(() => undefined);
+    return v;
+  }
+
+  async function upload(files: FileList | null, forLabel?: string) {
     if (!files?.length) return;
     setErr("");
+    const name = forLabel ?? (await nameForUpload());
     const added: Attachment[] = [];
     setBusy(files.length);
     for (const f of Array.from(files)) {
@@ -469,7 +483,8 @@ export function Attachments({ col, recordId, value, onChange }: { col: Collectio
         continue;
       }
       try {
-        added.push(await uploadAttachment(col, recordId, f, settings.imgbbApiKey));
+        const a = await uploadAttachment(col, recordId, f, settings.imgbbApiKey);
+        added.push(name ? { ...a, label: name } : a);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : `Upload failed for ${f.name}.`;
         setErr(msg);
@@ -482,6 +497,12 @@ export function Attachments({ col, recordId, value, onChange }: { col: Collectio
     if (input.current) input.current.value = "";
   }
 
+  const pick = (name: string) => {
+    setLabel(name);
+    input.current?.click();
+  };
+  const rename = (i: number, next: string) => onChange(list.map((a, j) => (j === i ? { ...a, label: next || undefined } : a)));
+
   return (
     <div
       onDragOver={(e) => e.preventDefault()}
@@ -490,37 +511,62 @@ export function Attachments({ col, recordId, value, onChange }: { col: Collectio
         void upload(e.dataTransfer.files);
       }}
     >
-      <ul className="space-y-1">
-        {list.map((a, i) => {
-          const isImg = a.thumbUrl || a.provider === "imgbb" || /\.(jpe?g|png|gif|webp|svg)$/i.test(a.name);
-          return (
-            <li key={a.path + i} className="flex items-center justify-between gap-2 rounded-md border border-line px-2 py-1.5 text-sm">
-              <a href={a.url} target="_blank" rel="noreferrer" className="flex min-w-0 items-center gap-2 text-accent hover:underline">
-                {isImg ? (
-                  <img
-                    src={a.thumbUrl || a.url}
-                    alt={a.name}
-                    className="h-7 w-7 rounded object-cover border border-line shrink-0"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <Paperclip size={14} className="shrink-0 text-muted" />
-                )}
-                <span className="truncate">{a.name}</span>
-              </a>
-              <span className="flex shrink-0 items-center gap-2 text-xs text-faint">
-                {(a.size / 1024).toFixed(0)} KB
-                <button type="button" className="hover:text-bad" onClick={() => onChange(list.filter((_, j) => j !== i))} aria-label={`Remove ${a.name}`}>
-                  <X size={14} />
-                </button>
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="erp-attach-names" aria-label="Attach a named document">
+        {names.filter((n) => n !== "Other").map((n) => (
+          <button key={n} type="button" className={`erp-attach-chip ${attached.has(n) ? "on" : ""}`} onClick={() => pick(n)} disabled={busy > 0} title={attached.has(n) ? `${n} attached — click to add another` : `Attach the ${n}`}>
+            {attached.has(n) ? "✓ " : "+ "}{n}
+          </button>
+        ))}
+      </div>
+      {list.length > 0 && (
+        <ol className="space-y-1">
+          {list.map((a, i) => {
+            const isImg = a.thumbUrl || a.provider === "imgbb" || /\.(jpe?g|png|gif|webp|svg)$/i.test(a.name);
+            const opts = a.label && !names.includes(a.label) ? [a.label, ...names] : names;
+            return (
+              <li key={a.path + i} className="erp-attach-row">
+                <span className="erp-attach-no">{i + 1}</span>
+                <select className="field erp-attach-label" value={a.label ?? ""} onChange={(e) => rename(i, e.target.value)} aria-label={`Name of attachment ${i + 1}`}>
+                  <option value="">— Name this document —</option>
+                  {opts.map((o) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
+                </select>
+                <a href={a.url} target="_blank" rel="noreferrer" className="flex min-w-0 flex-1 items-center gap-2 text-accent hover:underline">
+                  {isImg ? (
+                    <img
+                      src={a.thumbUrl || a.url}
+                      alt={a.name}
+                      className="h-7 w-7 rounded object-cover border border-line shrink-0"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <Paperclip size={14} className="shrink-0 text-muted" />
+                  )}
+                  <span className="truncate">{a.name}</span>
+                </a>
+                <span className="flex shrink-0 items-center gap-2 text-xs text-faint">
+                  {(a.size / 1024).toFixed(0)} KB
+                  <button type="button" className="hover:text-bad" onClick={() => onChange(list.filter((_, j) => j !== i))} aria-label={`Remove ${a.label || a.name}`}>
+                    <X size={14} />
+                  </button>
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <select className="field w-auto" value={label} onChange={(e) => setLabel(e.target.value)} aria-label="Document name for the next upload">
+          <option value="">Document name…</option>
+          {names.map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+          <option value={NEW}>+ New name…</option>
+        </select>
+        {label === NEW && <input className="field w-48" value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="e.g. Test certificate" aria-label="New document name" />}
         <button type="button" className="btn" onClick={() => input.current?.click()} disabled={busy > 0}>
           <Paperclip size={14} /> {busy ? `Uploading ${busy}…` : "Attach files"}
         </button>

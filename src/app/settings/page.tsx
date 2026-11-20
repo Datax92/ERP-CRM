@@ -71,6 +71,14 @@ function SettingsForm() {
             <span className="text-muted">A client is inactive after (days without activity)</span>
             <input className="field" type="number" min={1} value={draft.inactiveDays} onChange={(e) => setDraft({ ...draft, inactiveDays: Number(e.target.value) || 90 })} />
           </label>
+          <label className="space-y-1 text-sm sm:col-span-2">
+            <span className="text-muted">Company details on printed documents</span>
+            <textarea className="field min-h-20" value={draft.companyDetails} onChange={(e) => setDraft({ ...draft, companyDetails: e.target.value })} placeholder={"Address\nPhone · Email · Website\nNTN / STRN"} />
+          </label>
+          <label className="space-y-1 text-sm sm:col-span-2">
+            <span className="text-muted">Standard terms on quotations, orders and invoices</span>
+            <textarea className="field min-h-20" value={draft.documentTerms} onChange={(e) => setDraft({ ...draft, documentTerms: e.target.value })} placeholder="Prices valid for 30 days. Delivery ex-stock subject to prior sale…" />
+          </label>
         </div>
       </Section>
       <Section title="Attachments & Image Hosting (ImgBB)">

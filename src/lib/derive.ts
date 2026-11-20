@@ -300,3 +300,35 @@ export function vendorPaymentOf(so: Rec, s: Store) {
   if (st.every((x) => x === "Unpaid" || x === "—")) return "Unpaid";
   return "Partially paid";
 }
+
+// ---------- Payment ----------
+/** The document a payment settles (proforma, else sales / purchase order) and how much of it is
+    paid in total, how much remains, and whether this payment was full or partial. */
+export function paymentInfo(p: Rec, s: Store) {
+  const links = paymentLinks(p, s);
+  const pi = p.proformaId ? s.byId.proformaInvoices.get(p.proformaId) : undefined;
+  const order = p.direction === "Paid"
+    ? (links.purchaseOrderId ? s.byId.purchaseOrders.get(links.purchaseOrderId) : undefined)
+    : (links.salesOrderId ? s.byId.salesOrders.get(links.salesOrderId) : undefined);
+  const doc = pi ?? order;
+  if (!doc) return { doc: undefined, currency: p.currency || "PKR", total: 0, paid: num(p.amount), remaining: 0, status: "—" as const, kind: "—" };
+  const paid = pi ? piInfo(pi, s).paid : p.direction === "Paid" ? poInfo(doc, s).paid : soInfo(doc, s).received;
+  const total = num(doc.amount);
+  const remaining = Math.max(0, total - paid);
+  const status = paymentStatus(total, paid);
+  // Full when this one payment covers the whole document; otherwise one part of it.
+  const kind = paymentIn(p, doc) + 0.005 >= total ? "Full payment" : "Partial payment";
+  return { doc, currency: doc.currency || "PKR", total, paid, remaining, status, kind };
+}
+
+// ---------- Shipment ----------
+/** Where a shipment stands: days late against its ETA, and which documents are still missing. */
+export function shipmentInfo(sh: Rec, s: Store) {
+  const required = s.settings.shipmentDocuments;
+  const ready: string[] = Array.isArray(sh.docsReady) ? sh.docsReady : [];
+  const missing = required.filter((d) => !ready.includes(d));
+  const arrived = sh.ata || sh.deliveredDate;
+  const late = lateness(sh.eta, arrived);
+  const delivered = sh.status === "Delivered" || !!sh.deliveredDate;
+  return { ready, missing, required, late, delivered, inTransit: ["In transit", "At port", "Customs clearance", "Out for delivery"].includes(sh.status) };
+}

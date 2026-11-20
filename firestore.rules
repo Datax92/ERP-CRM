@@ -27,8 +27,29 @@ service cloud.firestore {
         'clients', 'suppliers', 'marketing', 'rfqs', 'quotations',
         'salesOrders', 'purchaseOrders', 'proformaInvoices', 'payments',
         'deliveries', 'companyDocs', 'investors', 'expenses',
-        'financeEntries', 'schedule', 'costSheets', 'counters'
+        'financeEntries', 'schedule', 'costSheets', 'shipments', 'counters'
       ] && isMember();
+    }
+
+    // Each member's name and email, so colleagues can pick them as a message recipient.
+    match /profiles/{uid} {
+      allow read: if isMember();
+      allow write: if isMember() && request.auth.uid == uid;
+    }
+
+    // Messages between members: only the sender and the recipient can read one;
+    // only the recipient can mark it read, only the sender can create it.
+    match /messages/{id} {
+      allow read: if isMember()
+        && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+      allow create: if isMember() && request.resource.data.fromUid == request.auth.uid;
+      allow update: if isMember()
+        && (
+          (resource.data.toUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readAt', 'archivedByTo']))
+          || (resource.data.fromUid == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['archivedByFrom']))
+        );
     }
   }
 }

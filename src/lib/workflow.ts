@@ -30,6 +30,29 @@ const carryCosting = (r: Rec) => Object.fromEntries([
   'commissionRate', 'commissionAmount', 'commissions', 'taxMode', 'applyIncomeTax', 'whtSaleRate', 'whtImportRate', 'gstOutputRate', 'gstInputRate', 'incomeTaxRate',
 ].filter((key) => r[key] !== undefined).map((key) => [key, r[key]]));
 
+/** Track the goods of a sales or purchase order as a shipment, with its documents. */
+function shipmentFrom(col: "salesOrders" | "purchaseOrders", r: Rec, s: Store): Conversion {
+  const so = col === "salesOrders" ? r : s.byId.salesOrders.get(r.salesOrderId);
+  const po = col === "purchaseOrders" ? r : undefined;
+  const existing = s.shipments.find((x) => x.status !== "Cancelled" && (col === "salesOrders" ? x.salesOrderId === r.id : x.purchaseOrderId === r.id));
+  return {
+    label: existing ? "Add another shipment" : "Track shipment",
+    target: "shipments",
+    run: () =>
+      create("shipments", {
+        id: "",
+        ...MODULES.shipments.defaults(s),
+        salesOrderId: so?.id ?? "",
+        purchaseOrderId: po?.id ?? "",
+        clientId: so?.clientId ?? "",
+        supplierId: po?.supplierId ?? "",
+        incoterm: r.incoterm ?? so?.incoterm ?? "",
+        etd: r.shipmentOriginDate ?? "",
+        eta: po?.expectedArrivalDate ?? so?.expectedDeliveryDate ?? "",
+      }),
+  };
+}
+
 /** A step in the chain: what the user sees and what it produces. */
 export type Conversion = { label: string; target: CollectionName; run: () => Promise<Rec>; disabled?: string };
 
@@ -231,6 +254,7 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
             paymentType: r.paymentTerms ?? "",
           }),
       });
+      out.push(shipmentFrom("salesOrders", r, s));
       break;
     }
     case "purchaseOrders": {
@@ -270,6 +294,7 @@ export function conversionsFor(col: CollectionName, r: Rec, s: Store): Conversio
             paymentType: r.paymentTerms ?? "",
           }),
       });
+      out.push(shipmentFrom("purchaseOrders", r, s));
       break;
     }
     case "proformaInvoices": {
@@ -358,13 +383,21 @@ export function linkedRecords(col: CollectionName, r: Rec, s: Store): { col: Col
       add("purchaseOrders", (x) => x.salesOrderId === r.id);
       add("proformaInvoices", (x) => x.salesOrderId === r.id);
       add("deliveries", (x) => x.salesOrderId === r.id);
+      add("shipments", (x) => x.salesOrderId === r.id);
       add("payments", (x) => x.salesOrderId === r.id);
       break;
     case "purchaseOrders":
       up("salesOrders", r.salesOrderId);
       add("proformaInvoices", (x) => x.purchaseOrderId === r.id);
       add("deliveries", (x) => x.purchaseOrderId === r.id);
+      add("shipments", (x) => x.purchaseOrderId === r.id);
       add("payments", (x) => x.purchaseOrderId === r.id);
+      break;
+    case "shipments":
+      up("salesOrders", r.salesOrderId);
+      up("purchaseOrders", r.purchaseOrderId);
+      up("clients", r.clientId);
+      up("suppliers", r.supplierId);
       break;
     case "proformaInvoices":
       up("salesOrders", r.salesOrderId);

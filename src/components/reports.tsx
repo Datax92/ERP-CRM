@@ -7,7 +7,7 @@ import { BarsChart, ChartCard, Kpis, RankBars, SimpleTable, type Kpi } from "./c
 import { Badge } from "./ui";
 import { RecordLink } from "./RecordDrawer";
 import { fmtCompact, fmtDate, fmtMoney, fmtNum, fmtPct, lateness, num, rateOf, daysFromToday } from "@/lib/calc";
-import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, supplierPrices, type Store } from "@/lib/derive";
+import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, deliveryInfo, piInfo, poInfo, shipmentInfo, soInfo, supplierInfo, supplierPrices, type Store } from "@/lib/derive";
 import { companyDocStatus, statusTone } from "@/lib/modules";
 import { groupSum, monthly, monthlyMeasures, productWise, topN } from "@/lib/report";
 import { stageKind } from "@/lib/stages";
@@ -545,6 +545,95 @@ export function paymentsReport(rows: Rec[], s: Store) {
         </ChartCard>
         <ChartCard title="Receipts by client (PKR)">
           <RankBars rows={groupSum(inflow, (r) => clientName(s, r.clientId), pkr)} money />
+        </ChartCard>
+        <ChartCard title="By bank (PKR)" subtitle="Bank the money went through">
+          <RankBars rows={groupSum(rows, (r) => r.bankName || "No bank recorded", pkr)} money />
+        </ChartCard>
+      </Grid>
+      <PaymentBalances s={s} />
+    </div>
+  );
+}
+
+/** Each order's total payment, what has been paid in full or in part, and what remains. */
+function PaymentBalances({ s }: { s: Store }) {
+  const lines = [
+    ...s.salesOrders.filter((o) => o.status !== "Cancelled").map((o) => { const i = soInfo(o, s); return { col: "salesOrders" as const, r: o, party: clientName(s, o.clientId), dir: "Receivable", paid: i.received, remaining: i.outstanding, status: i.payment, n: s.payments.filter((p) => p.direction === "Received" && p.salesOrderId === o.id).length }; }),
+    ...s.purchaseOrders.filter((o) => o.status !== "Cancelled").map((o) => { const i = poInfo(o, s); return { col: "purchaseOrders" as const, r: o, party: supplierName(s, o.supplierId), dir: "Payable", paid: i.paid, remaining: i.outstanding, status: i.payment, n: s.payments.filter((p) => p.direction === "Paid" && p.purchaseOrderId === o.id).length }; }),
+  ].filter((l) => num(l.r.amount) > 0);
+  const pkrOf = (l: (typeof lines)[number], v: number) => v * rateOf(l.r);
+  const total = lines.reduce((t, l) => t + pkrOf(l, num(l.r.amount)), 0);
+  const paid = lines.reduce((t, l) => t + pkrOf(l, l.paid), 0);
+  const remaining = lines.reduce((t, l) => t + pkrOf(l, l.remaining), 0);
+  const partial = lines.filter((l) => l.status === "Partially paid");
+  return (
+    <ChartCard title="Total, partial and remaining payment" subtitle="Every open sales and purchase order, with what has been paid against it and what is left" className="mt-4">
+      <Kpis
+        items={[
+          { label: "Total payment (PKR)", value: fmtCompact(total), sub: `${lines.length} orders` },
+          { label: "Paid so far (PKR)", value: fmtCompact(paid), tone: "good" },
+          { label: "Partially paid", value: fmtNum(partial.length), sub: `${fmtCompact(partial.reduce((t, l) => t + pkrOf(l, l.remaining), 0))} PKR left on them`, tone: "warn" },
+          { label: "Remaining payment (PKR)", value: fmtCompact(remaining), tone: remaining > 0 ? "bad" : "good" },
+        ]}
+      />
+      <SimpleTable
+        head={["Order", "Receivable / payable", "Party", "Total payment", "Paid", "Remaining", "Payments", "Status"]}
+        empty="No orders with an amount."
+        rows={lines
+          .sort((a, b) => pkrOf(b, b.remaining) - pkrOf(a, a.remaining))
+          .slice(0, 60)
+          .map((l) => [
+            <RecordLink key={l.r.id} col={l.col} id={l.r.id}>{l.r.serial}</RecordLink>,
+            l.dir,
+            l.party,
+            fmtMoney(l.r.amount, l.r.currency),
+            fmtMoney(l.paid, l.r.currency),
+            fmtMoney(l.remaining, l.r.currency),
+            fmtNum(l.n),
+            <Badge key="st" tone={statusTone(l.status)}>{l.status}</Badge>,
+          ])}
+      />
+    </ChartCard>
+  );
+}
+
+export function shipmentsReport(rows: Rec[], s: Store) {
+  const live = rows.filter((r) => r.status !== "Cancelled");
+  const info = new Map(live.map((r) => [r.id, shipmentInfo(r, s)]));
+  const transit = live.filter((r) => info.get(r.id)!.inTransit);
+  const late = live.filter((r) => (info.get(r.id)!.late?.days ?? 0) > 0);
+  const missing = live.filter((r) => !info.get(r.id)!.delivered && info.get(r.id)!.missing.length);
+  return (
+    <div>
+      <Kpis
+        items={[
+          { label: "Shipments", value: fmtNum(live.length) },
+          { label: "In transit / at port", value: fmtNum(transit.length), tone: "warn" },
+          { label: "Delivered", value: fmtNum(live.filter((r) => info.get(r.id)!.delivered).length), tone: "good" },
+          { label: "Late against ETA", value: fmtNum(late.length), tone: late.length ? "bad" : undefined },
+          { label: "Missing documents", value: fmtNum(missing.length), sub: "shipments not yet delivered", tone: missing.length ? "warn" : undefined },
+        ]}
+      />
+      <Grid>
+        <ChartCard title="Shipments by status">
+          <RankBars rows={groupSum(live, (r) => r.status)} />
+        </ChartCard>
+        <ChartCard title="Shipments by mode">
+          <RankBars rows={groupSum(live, (r) => r.mode)} />
+        </ChartCard>
+        <ChartCard title="On the way" subtitle="In transit, at port or in customs">
+          <SimpleTable
+            head={["Shipment", "Client", "BL / AWB", "ETA", "Last location"]}
+            empty="Nothing on the way."
+            rows={transit.map((r) => [<RecordLink key={r.id} col="shipments" id={r.id}>{r.serial}</RecordLink>, clientName(s, r.clientId), r.trackingNo || "—", fmtDate(r.eta), r.lastLocation || "—"])}
+          />
+        </ChartCard>
+        <ChartCard title="Documents still missing">
+          <SimpleTable
+            head={["Shipment", "Status", "Missing"]}
+            empty="Every shipment has its documents."
+            rows={missing.map((r) => [<RecordLink key={r.id} col="shipments" id={r.id}>{r.serial}</RecordLink>, r.status, info.get(r.id)!.missing.join(", ")])}
+          />
         </ChartCard>
       </Grid>
     </div>

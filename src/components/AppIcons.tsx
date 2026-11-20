@@ -286,6 +286,34 @@ const ART: Record<string, React.ReactNode> = {
       <rect x="5" y="36" width="38" height="5" rx="1.5" fill={C.amber} />
     </>
   ),
+  shipment: (
+    <>
+      <path d="M5 30h38l-5 10H11z" fill={C.blue} />
+      <rect x="10" y="17" width="10" height="11" rx="1.5" fill={C.orange} />
+      <rect x="21" y="12" width="10" height="16" rx="1.5" fill={C.teal} />
+      <rect x="32" y="20" width="8" height="8" rx="1.5" fill={C.amber} />
+      <path d="M6 43c4 0 4-2 8-2s4 2 8 2 4-2 8-2 4 2 8 2" fill="none" stroke={C.navy} strokeWidth="2.4" strokeLinecap="round" />
+    </>
+  ),
+  reports: (
+    <>
+      <rect x="9" y="6" width="28" height="36" rx="4" fill={C.purple} />
+      <rect x="14" y="27" width="5" height="9" rx="1" fill={C.amber} />
+      <rect x="21" y="20" width="5" height="16" rx="1" fill={C.teal} />
+      <rect x="28" y="14" width="5" height="22" rx="1" fill={C.coral} />
+      <circle cx="37" cy="37" r="7" fill={C.deep} />
+      <path d="M34 37h6M37 34v6" stroke="var(--ic-paper)" strokeWidth="2.2" strokeLinecap="round" />
+    </>
+  ),
+  messages: (
+    <>
+      <path d="M6 10h28a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H18l-8 7v-7H6a4 4 0 0 1-4-4V14a4 4 0 0 1 4-4z" fill={C.teal} />
+      <path d="M20 18h22a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4h-2v6l-7-6H20a4 4 0 0 1-4-4V22a4 4 0 0 1 4-4z" fill={C.orange} opacity=".9" />
+      <circle cx="25" cy="28" r="1.8" fill="var(--ic-paper)" />
+      <circle cx="31" cy="28" r="1.8" fill="var(--ic-paper)" />
+      <circle cx="37" cy="28" r="1.8" fill="var(--ic-paper)" />
+    </>
+  ),
   account: (
     <>
       <path d="M24 5l16.5 9.5v19L24 43 7.5 33.500v-19z" fill={C.purple} />

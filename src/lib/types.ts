@@ -19,7 +19,8 @@ export type CollectionName =
   | "expenses"
   | "financeEntries"
   | "schedule"
-  | "costSheets";
+  | "costSheets"
+  | "shipments";
 
 export const COLLECTIONS: CollectionName[] = [
   "clients",
@@ -38,9 +39,15 @@ export const COLLECTIONS: CollectionName[] = [
   "financeEntries",
   "schedule",
   "costSheets",
+  "shipments",
 ];
 
+/** Collections added after launch: if the database rules do not allow them yet the app still loads. */
+export const OPTIONAL_COLLECTIONS: CollectionName[] = ["shipments"];
+
 export type Attachment = {
+  /** What the document is: "Client PO", "Supplier proforma invoice"… */
+  label?: string;
   name: string;
   url: string;
   path: string;
@@ -124,10 +131,21 @@ export type Settings = {
   taskHorizons: string[];
   extraCostCategories: string[];
   commissionRoles: string[];
+  attachmentNames: string[];
+  banks: string[];
+  shipmentDocuments: string[];
+  memorizedReports: MemorizedReport[];
   inactiveDays: number;
   companyName: string;
+  /** Address, phone, email and tax numbers printed under the company name on documents. */
+  companyDetails: string;
+  /** Terms printed at the foot of quotations, orders and invoices. */
+  documentTerms: string;
   imgbbApiKey: string;
 };
+
+/** A standard report saved with its filters under a name, to run again later. */
+export type MemorizedReport = { id: string; name: string; report: string; filters: Record<string, string>; createdAt: string; createdBy?: string };
 
 export type ListKey = {
   [K in keyof Settings]-?: Settings[K] extends string[] ? K : never;

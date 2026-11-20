@@ -1,6 +1,6 @@
 import { computeCostSheet, daysBetween, emptyItem, fmtDate, fmtMoney, fmtNum, fmtPct, itemTotals, num, rateOf, today } from "./calc";
 import { computeCalcSheet } from "./calcSheet";
-import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, dealLinks, deliveryInfo, piInfo, poInfo, salesRefOf, soInfo, supplierInfo, vendorPaymentOf, type Store } from "./derive";
+import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, dealLinks, deliveryInfo, paymentInfo, piInfo, poInfo, salesRefOf, shipmentInfo, soInfo, supplierInfo, vendorPaymentOf, type Store } from "./derive";
 import { contactDate, contactDetails, latestMarketingContact, marketingChannelName, marketingStatus, MARKETING_STATUSES } from "./marketing";
 import { STAGES, stageKind } from "./stages";
 import type { CollectionName, ItemsMode, ListKey, Rec } from "./types";
@@ -106,6 +106,8 @@ export function labelOf(col: CollectionName, r: Rec | undefined, s: Store): stri
     case "salesOrders":
     case "deliveries":
       return [r.serial, clientName(r, s)].filter(Boolean).join(" · ");
+    case "shipments":
+      return [r.serial, r.trackingNo, clientName(r, s) || supplierName(r, s)].filter(Boolean).join(" · ");
     case "purchaseOrders":
       return [r.serial, supplierName(r, s)].filter(Boolean).join(" · ");
     case "proformaInvoices":
@@ -182,6 +184,8 @@ function calcOf(r: Rec) {
   if (!c || !(Object.values(c.rows ?? {}).some(hasValue) || hasValue(c.exWorks) || hasValue(c.saleValue))) return null;
   return computeCalcSheet(c, { exWorks: itemTotals(r.items).totalCost, saleValue: num(r.amount) });
 }
+/** The module a task was created from, or the planner itself. */
+const raisedFrom = (r: Rec) => (r.linkCol ? MODULES[r.linkCol as CollectionName]?.title ?? "" : "Planner");
 /** Days a delivered order has waited for the client's payment; "Paid" once settled. */
 function paymentAgeing(r: Rec, s: Store): Cell {
   const i = soInfo(r, s);
@@ -198,7 +202,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     title: "Clients",
     singular: "Client",
     href: "/clients",
-    searchKeys: ["name", "contactPerson", "email", "phone", "mobile", "details", "jobTitle", "remarks", "address", "country", "headOffice", "plant", "whatsapp"],
+    searchKeys: ["name", "contactPerson", "email", "emailCc1", "emailCc2", "phone", "mobile", "details", "jobTitle", "remarks", "address", "country", "headOffice", "plant", "whatsapp"],
     defaults: () => ({ registration: "Unregistered", country: "Pakistan" }),
     fields: [
       { name: "name", label: "Client / company name", type: "text", required: true },
@@ -208,6 +212,8 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { name: "whatsapp", label: "WhatsApp", type: "tel" },
       { name: "contactPerson", label: "Contact person", type: "text" },
       { name: "email", label: "Email", type: "email" },
+      { name: "emailCc1", label: "Email CC 1", type: "email", help: "Copied on emails to this contact." },
+      { name: "emailCc2", label: "Email CC 2", type: "email" },
       { name: "phone", label: "Telephone", type: "tel" },
       { name: "mobile", label: "Cell / mobile", type: "tel" },
       { name: "region", label: "Region", type: "select", list: "regions" },
@@ -231,6 +237,8 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "contactPerson", label: "Person", cell: (r) => t(r.contactPerson) },
       { key: "jobTitle", label: "Job title", cell: (r) => t(r.jobTitle) },
       { key: "email", label: "Email", cell: (r) => t(r.email) },
+      { key: "emailCc1", label: "Email CC 1", cell: (r) => t(r.emailCc1) },
+      { key: "emailCc2", label: "Email CC 2", cell: (r) => t(r.emailCc2) },
       { key: "mobile", label: "Cell / mobile", cell: (r) => t(r.mobile) },
       { key: "whatsapp", label: "WhatsApp", cell: (r) => t(r.whatsapp) },
       { key: "phone", label: "Telephone", cell: (r) => t(r.phone) },
@@ -267,7 +275,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     title: "Suppliers",
     singular: "Supplier",
     href: "/suppliers",
-    searchKeys: ["name", "contactPerson", "email", "phone", "mobile", "details", "jobTitle", "remarks", "address", "country", "headOffice", "plant", "whatsapp"],
+    searchKeys: ["name", "contactPerson", "email", "emailCc1", "emailCc2", "phone", "mobile", "details", "jobTitle", "remarks", "address", "country", "headOffice", "plant", "whatsapp"],
     defaults: () => ({ brands: [], products: [] }),
     fields: [
       { name: "name", label: "Supplier name", type: "text", required: true },
@@ -278,6 +286,8 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { name: "whatsapp", label: "WhatsApp", type: "tel" },
       { name: "contactPerson", label: "Contact person", type: "text" },
       { name: "email", label: "Email", type: "email" },
+      { name: "emailCc1", label: "Email CC 1", type: "email", help: "Copied on emails to this contact." },
+      { name: "emailCc2", label: "Email CC 2", type: "email" },
       { name: "phone", label: "Telephone", type: "tel" },
       { name: "mobile", label: "Cell / mobile", type: "tel" },
       { name: "sector", label: "Sector", type: "select", list: "sectors" },
@@ -301,6 +311,8 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "contactPerson", label: "Person", cell: (r) => t(r.contactPerson) },
       { key: "jobTitle", label: "Job title", cell: (r) => t(r.jobTitle) },
       { key: "email", label: "Email", cell: (r) => t(r.email) },
+      { key: "emailCc1", label: "Email CC 1", cell: (r) => t(r.emailCc1) },
+      { key: "emailCc2", label: "Email CC 2", cell: (r) => t(r.emailCc2) },
       { key: "mobile", label: "Cell / mobile", cell: (r) => t(r.mobile) },
       { key: "whatsapp", label: "WhatsApp", cell: (r) => t(r.whatsapp) },
       { key: "phone", label: "Telephone", cell: (r) => t(r.phone) },
@@ -326,7 +338,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     title: "Marketing",
     singular: "Marketing activity",
     href: "/marketing",
-    searchKeys: ["prospectName", "subject", "notes", "product", "status", "lastContactDetails", "response"],
+    searchKeys: ["prospectName", "subject", "notes", "product", "status", "lastContactDetails", "response", "campaignGroup"],
     defaults: () => ({ date: today(), channel: "Email", status: "Planned", response: "No response" }),
     fields: [
       { name: "date", label: "Activity date", type: "date", required: true },
@@ -345,6 +357,9 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     columns: [
       { key: "who", label: "Client", cell: (r, s) => t(clientName(r, s) || r.prospectName) },
       { key: "date", label: "Activity date", cell: (r) => date(r.date) },
+      { key: "region", label: "Region", cell: (r, s) => t(s.byId.clients.get(r.clientId)?.region) },
+      { key: "sector", label: "Sector", cell: (r, s) => t(s.byId.clients.get(r.clientId)?.sector) },
+      { key: "campaignGroup", label: "Campaign group", cell: (r) => t(r.campaignGroup) },
       { key: "status", label: "Status", cell: (r) => badge(marketingStatus(r)) },
       { key: "lastContactDate", label: "Last contact", cell: (r,s) => { const last = latestMarketingContact(r,s.marketing); return date(last ? contactDate(last) : ''); } },
       { key: "lastContactDetails", label: "Last contact details", cell: (r,s) => { const last = latestMarketingContact(r,s.marketing); return t(last ? [marketingChannelName(last.channel), contactDetails(last)].filter(Boolean).join(' · ') : ''); } },
@@ -358,6 +373,9 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     ],
     filters: [
       clientFilter,
+      { key: "region", label: "Region", options: (s) => uniq(s.clients.map((c) => c.region)).sort(), get: (r, s) => s.byId.clients.get(r.clientId)?.region ?? "" },
+      { key: "sector", label: "Sector", options: (s) => uniq(s.clients.map((c) => c.sector)).sort(), get: (r, s) => s.byId.clients.get(r.clientId)?.sector ?? "" },
+      { key: "campaignGroup", label: "Campaign group", options: (s) => uniq(s.marketing.map((m) => m.campaignGroup)).sort(), get: (r) => r.campaignGroup ?? "" },
       { key: "status", label: "Activity status", options: () => MARKETING_STATUSES, get: marketingStatus },
       { key: "activity", label: "Client activity", options: () => ['Active', 'Inactive', 'Prospect'], get: (r, s) => { const c = s.byId.clients.get(r.clientId); return c ? (clientInfo(c, s).active ? 'Active' : 'Inactive') : 'Prospect'; } },
       { key: "channel", label: "Channel", options: (s) => s.settings.marketingChannels, get: (r) => r.channel ?? "" },
@@ -679,7 +697,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     href: "/payments",
     prefix: "PAY",
     amountField: "amount",
-    searchKeys: ["serial", "reference", "notes"],
+    searchKeys: ["serial", "reference", "notes", "bankName", "accountNumber", "accountTitle"],
     defaults: () => ({ ...cur(), direction: "Received" }),
     fields: [
       { name: "direction", label: "Direction", type: "select", options: ["Received", "Paid"], required: true, help: "Received = payment receipt from a client. Paid = payment to a vendor/supplier." },
@@ -694,7 +712,10 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { name: "paymentType", label: "Payment type", type: "select", list: "paymentTerms" },
       { name: "method", label: "Payment method", type: "select", list: "paymentMethods" },
       { name: "reference", label: "Cheque / transaction / LC no.", type: "text" },
-      notes,
+      { name: "bankName", label: "Bank name", type: "select", list: "banks", section: "Bank", help: "The bank the money went through." },
+      { name: "accountTitle", label: "Account title", type: "text" },
+      { name: "accountNumber", label: "Account number / IBAN", type: "text" },
+      { ...notes, section: "Notes" },
     ],
     columns: [
       { key: "serial", label: "No.", cell: (r) => t(r.serial) },
@@ -704,12 +725,23 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "doc", label: "Against", cell: (r, s) => t([s.byId.salesOrders.get(r.salesOrderId)?.serial, s.byId.purchaseOrders.get(r.purchaseOrderId)?.serial, s.byId.proformaInvoices.get(r.proformaId)?.serial].filter(Boolean).join(", ")) },
       { key: "amount", label: "Amount", align: "right", cell: (r) => money(r.amount, r.currency) },
       { key: "pkr", label: "PKR", align: "right", cell: (r) => money(r.amountPKR) },
+      { key: "kind", label: "Full / partial", cell: (r, s) => { const k = paymentInfo(r, s).kind; return { text: k, tone: k === "Full payment" ? "good" : k === "Partial payment" ? "warn" : undefined }; } },
+      { key: "total", label: "Total payment", align: "right", cell: (r, s) => { const i = paymentInfo(r, s); return i.doc ? money(i.total, i.currency) : t(""); } },
+      { key: "paidToDate", label: "Paid to date", align: "right", cell: (r, s) => { const i = paymentInfo(r, s); return i.doc ? money(i.paid, i.currency) : t(""); } },
+      { key: "remaining", label: "Remaining payment", align: "right", cell: (r, s) => { const i = paymentInfo(r, s); return i.doc ? { ...money(i.remaining, i.currency), tone: i.remaining > 0.005 ? "bad" : "good" } : t(""); } },
+      { key: "paymentStatus", label: "Payment status", cell: (r, s) => badge(paymentInfo(r, s).status) },
       { key: "method", label: "Method", cell: (r) => t(r.method) },
+      { key: "bankName", label: "Bank name", cell: (r) => t(r.bankName) },
+      { key: "accountNumber", label: "Account number", cell: (r) => ({ text: r.accountNumber || "—", subtext: r.accountTitle || undefined }) },
+      { key: "reference", label: "Cheque / ref. no.", cell: (r) => t(r.reference) },
     ],
     filters: [
       { key: "direction", label: "Direction", options: () => ["Received", "Paid"], get: (r) => r.direction ?? "" },
       { key: "method", label: "Method", options: (s) => s.settings.paymentMethods, get: (r) => r.method ?? "" },
       { key: "paymentType", label: "Type", options: (s) => s.settings.paymentTerms, get: (r) => r.paymentType ?? "" },
+      { key: "kind", label: "Full / partial", options: () => ["Full payment", "Partial payment", "—"], get: (r, s) => paymentInfo(r, s).kind },
+      { key: "paymentStatus", label: "Payment status", options: () => ["Paid", "Partially paid", "Unpaid", "—"], get: (r, s) => paymentInfo(r, s).status },
+      { key: "bankName", label: "Bank", options: (s) => uniq([...s.settings.banks, ...s.payments.map((p) => p.bankName)]).sort(), get: (r) => r.bankName ?? "" },
     ],
   },
 
@@ -755,6 +787,76 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "status", label: "Status", cell: (r) => badge(r.status) },
     ],
     filters: [statusFilter("deliveries"), clientFilter, { key: "incoterm", label: "Incoterm", options: (s) => s.settings.incoterms, get: (r) => r.incoterm ?? "" }],
+  },
+
+  shipments: {
+    col: "shipments",
+    title: "Shipments & Documentation",
+    singular: "Shipment",
+    href: "/shipments",
+    prefix: "SHP",
+    searchKeys: ["serial", "trackingNo", "containerNo", "carrier", "forwarder", "vessel", "originPort", "destinationPort", "lastLocation", "gdNo", "notes"],
+    defaults: () => ({ date: today(), mode: "Sea", status: "Booked", docsReady: [], docsSent: [] }),
+    fields: [
+      { name: "date", label: "Booking date", type: "date", required: true, section: "Shipment" },
+      { name: "mode", label: "Mode", type: "select", options: ["Sea", "Air", "Road", "Rail", "Courier"], required: true },
+      statusField("shipments"),
+      { name: "salesOrderId", label: "Sales order", type: "ref", ref: "salesOrders", autofill: (id, _d, s) => { const so = s.byId.salesOrders.get(id); return so ? { clientId: so.clientId, incoterm: so.incoterm ?? "" } : {}; } },
+      { name: "purchaseOrderId", label: "Purchase order", type: "ref", ref: "purchaseOrders", autofill: (id, _d, s) => { const po = s.byId.purchaseOrders.get(id); return po ? { supplierId: po.supplierId, salesOrderId: po.salesOrderId ?? "" } : {}; } },
+      { name: "clientId", label: "Client (consignee)", type: "ref", ref: "clients" },
+      { name: "supplierId", label: "Supplier (shipper)", type: "ref", ref: "suppliers" },
+      { name: "incoterm", label: "Incoterm", type: "select", list: "incoterms" },
+      { name: "carrier", label: "Shipping line / airline / courier", type: "text" },
+      { name: "forwarder", label: "Freight forwarder / clearing agent", type: "text" },
+      { name: "trackingNo", label: "BL / AWB / tracking no.", type: "text" },
+      { name: "containerNo", label: "Container no(s).", type: "text" },
+      { name: "vessel", label: "Vessel / flight / truck no.", type: "text" },
+      { name: "packages", label: "Packages", type: "text", help: "e.g. 3 crates, 1 x 20ft" },
+      { name: "grossWeight", label: "Gross weight (kg)", type: "number" },
+      { name: "originPort", label: "Port / place of loading", type: "text", section: "Route & tracking" },
+      { name: "destinationPort", label: "Port / place of discharge", type: "text" },
+      { name: "etd", label: "ETD (expected departure)", type: "date" },
+      { name: "atd", label: "Departed on", type: "date" },
+      { name: "eta", label: "ETA (expected arrival)", type: "date" },
+      { name: "ata", label: "Arrived on", type: "date" },
+      { name: "deliveredDate", label: "Delivered to client on", type: "date" },
+      { name: "lastLocation", label: "Last known location", type: "text" },
+      { name: "lastUpdate", label: "Last tracking update", type: "date" },
+      { name: "trackingUrl", label: "Tracking link", type: "text", wide: true, help: "The carrier's tracking page for this shipment." },
+      { name: "docsReady", label: "Documents ready / received", type: "multiselect", list: "shipmentDocuments", wide: true, section: "Documentation" },
+      { name: "docsSent", label: "Documents sent to client / bank", type: "multiselect", list: "shipmentDocuments", wide: true },
+      { name: "gdNo", label: "Goods declaration (GD) no.", type: "text" },
+      { name: "insurancePolicy", label: "Insurance policy / cert. no.", type: "text" },
+      { name: "lcNo", label: "LC no.", type: "text" },
+      { ...notes, section: "Notes" },
+    ],
+    columns: [
+      { key: "serial", label: "Shipment no.", cell: (r) => t(r.serial) },
+      { key: "date", label: "Booking date", cell: (r) => date(r.date) },
+      { key: "mode", label: "Mode", cell: (r) => t(r.mode) },
+      { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
+      { key: "so", label: "S/O ref.", cell: (r, s) => t(s.byId.salesOrders.get(r.salesOrderId)?.serial) },
+      { key: "po", label: "P/O ref.", cell: (r, s) => t(s.byId.purchaseOrders.get(r.purchaseOrderId)?.serial) },
+      { key: "supplier", label: "Supplier", cell: (r, s) => t(supplierName(r, s)) },
+      { key: "carrier", label: "Carrier", cell: (r) => ({ text: r.carrier || "—", subtext: r.forwarder || undefined }) },
+      { key: "trackingNo", label: "BL / AWB no.", cell: (r) => ({ text: r.trackingNo || "—", subtext: r.containerNo || undefined }) },
+      { key: "route", label: "Route", cell: (r) => t([r.originPort, r.destinationPort].filter(Boolean).join(" → ")) },
+      { key: "etd", label: "ETD", cell: (r) => date(r.atd || r.etd) },
+      { key: "eta", label: "ETA", cell: (r) => date(r.eta) },
+      { key: "ata", label: "Arrived", cell: (r) => date(r.ata) },
+      { key: "late", label: "Late", align: "right", cell: (r, s) => lateCell(shipmentInfo(r, s).late) },
+      { key: "status", label: "Status", cell: (r) => badge(r.status) },
+      { key: "lastLocation", label: "Last location", cell: (r) => ({ text: r.lastLocation || "—", subtext: r.lastUpdate ? fmtDate(r.lastUpdate) : undefined }) },
+      { key: "docs", label: "Documents", cell: (r, s) => { const i = shipmentInfo(r, s); return { text: `${i.required.length - i.missing.length} / ${i.required.length} ready`, tone: i.missing.length ? "warn" : "good", sort: i.missing.length }; } },
+      { key: "missing", label: "Missing documents", cell: (r, s) => t(shipmentInfo(r, s).missing.join(", ")) },
+    ],
+    filters: [
+      statusFilter("shipments"),
+      openClosedFilter("shipments"),
+      { key: "mode", label: "Mode", options: () => ["Sea", "Air", "Road", "Rail", "Courier"], get: (r) => r.mode ?? "" },
+      clientFilter,
+      { key: "docs", label: "Documents", options: () => ["Complete", "Missing documents"], get: (r, s) => (shipmentInfo(r, s).missing.length ? "Missing documents" : "Complete") },
+    ],
   },
 
   companyDocs: {
@@ -998,9 +1100,11 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
         cell: (r, s) => t(clientName(r, s) || supplierName(r, s)),
       },
       { key: "assignedTo", label: "Assigned to", cell: (r) => t(r.assignedTo) },
+      { key: "linked", label: "Linked record", cell: (r) => t(r.linkLabel) },
     ],
     filters: [
       statusFilter("schedule"),
+      { key: "linkCol", label: "Raised from", options: (s) => uniq(s.schedule.map(raisedFrom)).sort(), get: raisedFrom },
       {
         key: "horizon",
         label: "Horizon",
@@ -1160,6 +1264,21 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
     ],
   },
 };
+
+// Every module lists its attached documents by name: "1. Client PO, 2. Supplier proforma invoice".
+for (const m of Object.values(MODULES)) {
+  if (m.columns.some((c) => c.key === "attachments")) continue;
+  // Remarks stays the last column where it already is.
+  const at = m.columns.at(-1)?.key === "remarks" ? m.columns.length - 1 : m.columns.length;
+  m.columns.splice(at, 0, {
+    key: "attachments",
+    label: "Attachments",
+    cell: (r) => {
+      const list: Rec[] = r.attachments ?? [];
+      return list.length ? { text: list.map((a, i) => `${i + 1}. ${a.label || a.name}`).join(", "), sort: list.length } : { text: "—", sort: 0 };
+    },
+  });
+}
 
 export function companyDocStatus(r: Rec): string {
   if (r.expiryDate) {

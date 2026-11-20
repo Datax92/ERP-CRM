@@ -3,6 +3,8 @@ import type { Settings, ListKey } from "./types";
 /** Starting values only — every list is editable on the Settings page. */
 export const DEFAULT_SETTINGS: Settings = {
   companyName: "My Company",
+  companyDetails: "",
+  documentTerms: "",
   inactiveDays: 90,
   imgbbApiKey: "",
   regions: [
@@ -93,6 +95,33 @@ export const DEFAULT_SETTINGS: Settings = {
     "Warehousing & Handling",
     "Other Direct Expense",
   ],
+  attachmentNames: [
+    "Client PO",
+    "Supplier proforma invoice",
+    "Quotation",
+    "RFQ",
+    "Technical approvals",
+    "Supplier PO",
+    "Commercial invoice",
+    "Packing list",
+    "Bill of lading / AWB",
+    "Certificate of origin",
+    "Delivery note",
+    "Payment receipt",
+    "Other",
+  ],
+  banks: [],
+  shipmentDocuments: [
+    "Commercial invoice",
+    "Packing list",
+    "Bill of lading / AWB",
+    "Certificate of origin",
+    "Insurance certificate",
+    "Inspection / test certificate",
+    "Goods declaration (GD)",
+    "Delivery note",
+  ],
+  memorizedReports: [],
   commissionRoles: [
     "Buying Agent",
     "Sales Agent",
@@ -129,11 +158,15 @@ export const LIST_LABELS: Record<ListKey, string> = {
   taskHorizons: "Task time horizons",
   extraCostCategories: "Cost sheet expense categories",
   commissionRoles: "Cost sheet commission roles",
+  attachmentNames: "Attachment names",
+  banks: "Banks",
+  shipmentDocuments: "Shipment documents checklist",
 };
 
 export function mergeSettings(stored: Partial<Settings> | undefined): Settings {
   const merged = { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
   for (const k of Object.keys(LIST_LABELS) as ListKey[]) merged[k] = [...new Set((merged[k] ?? []).map((v) => String(v).trim()).filter(Boolean))];
+  merged.memorizedReports = Array.isArray(merged.memorizedReports) ? merged.memorizedReports : [];
   merged.marketingChannels = [...new Set(["Email", "WhatsApp", "Call", ...merged.marketingChannels])];
   return merged;
 }

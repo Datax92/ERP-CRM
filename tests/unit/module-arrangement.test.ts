@@ -13,7 +13,7 @@ const labels = (col: keyof typeof MODULES) => MODULES[col].columns.map((c) => c.
 it("arranges the RFQ, offer, sales order and PO columns in the client's sheet order", () => {
   expect(labels('rfqs')).toEqual([
     'creation date', 'region', 'territory', 'sector', 'customer', 'rfq no.', 'rfq date', 'description',
-    'total weight', 'qty', 'sale dept. ref.', 'status (open / close)', 'closing date', 'remarks',
+    'total weight', 'qty', 'sale dept. ref.', 'status (open / close)', 'closing date', 'attachments', 'remarks',
   ]);
   expect(labels('quotations').slice(0, 24)).toEqual([
     'creation date', 'region', 'territory', 'sector', 'customer', 'sales ref.', 'rfq ref. no.', 'rfq date',

@@ -2,11 +2,11 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, Trash2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Circle, ListTodo, Printer, Trash2 } from "lucide-react";
 import { useStore } from "./DataProvider";
 import { Attachments, CurrencyField, ItemsEditor, ListSelect, MultiSelect, RefSelect } from "./fields";
 import { Badge, Drawer, Section } from "./ui";
-import { deleteRecord, newId, saveRecord, saveSettings } from "@/lib/db";
+import { deleteRecord, newId, patchRecord, saveRecord, saveSettings } from "@/lib/db";
 import { contactDate, contactDetails, latestMarketingContact, marketingChannelName, marketingStatus } from "@/lib/marketing";
 import { fmtDate, fmtMoney, fmtPct, num, today } from "@/lib/calc";
 import { clientInfo, deliveryInfo, piInfo, poInfo, soInfo, supplierInfo, type Store } from "@/lib/derive";
@@ -16,6 +16,9 @@ import { DealRoute } from "./TradeRoute";
 import { TotalPriceConverter } from "./TotalPriceConverter";
 import { QuotationCostSheet } from "./QuotationCostSheet";
 import { CalculationSheet } from "./CalculationSheet";
+import { PRINTABLE } from "./TradeDocument";
+import { stageKind } from "@/lib/stages";
+import { FEATURES } from "@/lib/features";
 import type { CollectionName, LineItem, Rec } from "@/lib/types";
 
 type DrawerTab = "overview" | "details" | "items" | "costSheet" | "margin" | "files";
@@ -121,6 +124,11 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
               <Trash2 size={14} /> Delete
             </button>
           )}
+          {!isNew && PRINTABLE[col] && (
+            <a className="btn" href={`/print/?col=${col}&id=${encodeURIComponent(existing.id)}`} target="_blank" rel="noreferrer" title={`Print or save the ${PRINTABLE[col]} as PDF`}>
+              <Printer size={14} /> {PRINTABLE[col]} PDF
+            </a>
+          )}
           <button type="button" className="btn" onClick={close} disabled={busy}>
             Close
           </button>
@@ -146,6 +154,7 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
             <Summary col={col} r={existing} s={s} />
             {col === "clients" && <div className="mb-4"><Link className="btn" href={`/marketing/?new=1&client=${encodeURIComponent(existing.id)}`}>Record marketing activity</Link></div>}
             <Workflow col={col} r={existing} s={s} dirty={dirty} onOpen={onOpen} />
+            {col !== "schedule" && <RecordTasks col={col} r={existing} s={s} />}
             <Linked col={col} r={existing} s={s} onOpen={onOpen} />
             <p className="text-xs text-faint">Created {fmtDate(existing.createdAt)} · Updated {fmtDate(existing.updatedAt)}</p>
           </>
@@ -218,6 +227,86 @@ export function RecordDrawer({ col, id, onClose, onOpen, initialValues }: { init
         )}
       </form>
     </Drawer>
+  );
+}
+
+/** Tasks raised from a record: who must do what by when, listed here and in the planner. */
+export function tasksFor(col: CollectionName, r: Rec, s: Store) {
+  const own = (t: Rec) => t.linkCol === col && t.linkId === r.id;
+  const legacy = (t: Rec) =>
+    !t.linkCol && ((col === "clients" && t.clientId === r.id) || (col === "suppliers" && t.supplierId === r.id) || (col === "salesOrders" && t.salesOrderId === r.id) || (col === "purchaseOrders" && t.purchaseOrderId === r.id));
+  return s.schedule.filter((t) => own(t) || legacy(t)).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+function RecordTasks({ col, r, s }: { col: CollectionName; r: Rec; s: Store }) {
+  const [title, setTitle] = useState("");
+  const [due, setDue] = useState(today());
+  const [priority, setPriority] = useState("Medium");
+  const [who, setWho] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const tasks = tasksFor(col, r, s);
+  const label = labelOf(col, r, s);
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!title.trim()) return setErr("Write what needs doing.");
+    setBusy(true);
+    setErr("");
+    try {
+      const so = col === "salesOrders" ? r : r.salesOrderId ? s.byId.salesOrders.get(r.salesOrderId) : undefined;
+      const links = {
+        clientId: col === "clients" ? r.id : r.clientId || so?.clientId || "",
+        supplierId: col === "suppliers" ? r.id : r.supplierId || "",
+        salesOrderId: so?.id ?? "",
+        purchaseOrderId: col === "purchaseOrders" ? r.id : r.purchaseOrderId || "",
+      };
+      await saveRecord("schedule", { id: newId("schedule"), ...MODULES.schedule.defaults(s), title: title.trim(), date: due, priority, assignedTo: who.trim(), status: "Pending", category: s.settings.taskCategories.includes("General Note") ? "General Note" : s.settings.taskCategories[0] ?? "", ...links, linkCol: col, linkId: r.id, linkLabel: `${MODULES[col].singular}: ${label}` }, { serialPrefix: MODULES.schedule.prefix });
+      setTitle("");
+      setWho("");
+    } catch (x) {
+      setErr(`Could not add the task: ${(x as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const toggle = (t: Rec) => patchRecord("schedule", t.id, { status: t.status === "Completed" ? "Pending" : "Completed" }).catch((x) => setErr((x as Error).message));
+
+  return (
+    <Section title={`Tasks${tasks.length ? ` (${tasks.filter((t) => stageKind("schedule", t.status) === "open").length} open)` : ""}`}>
+      {tasks.length > 0 && (
+        <ul className="erp-record-tasks">
+          {tasks.map((t) => {
+            const done = t.status === "Completed";
+            const late = !done && stageKind("schedule", t.status) === "open" && t.date && t.date < today();
+            return (
+              <li key={t.id} className={done ? "done" : ""}>
+                <button type="button" onClick={() => toggle(t)} aria-label={done ? `Reopen ${t.title}` : `Mark ${t.title} done`} title={done ? "Reopen" : "Mark done"}>
+                  {done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                </button>
+                <Link href={`/schedule/?id=${t.id}`} className="min-w-0 flex-1 truncate">{t.title}</Link>
+                {t.assignedTo && <span className="text-xs text-muted">{t.assignedTo}</span>}
+                <Badge tone={late ? "bad" : done ? "good" : t.priority === "Urgent" || t.priority === "High" ? "warn" : "muted"}>{done ? "Done" : `${late ? "Late · " : ""}${fmtDate(t.date)}`}</Badge>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="erp-task-form" role="group" aria-label="Create a task for this record" onKeyDown={(e) => { if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") void add(e); }}>
+        <ListTodo size={15} className="text-muted" />
+        <input className="field flex-1" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={`Create task, e.g. Follow up ${MODULES[col].singular.toLowerCase()}…`} aria-label="Task" />
+        <input className="field w-36" type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="Due date" />
+        <select className="field w-28" value={priority} onChange={(e) => setPriority(e.target.value)} aria-label="Priority">
+          {s.settings.taskPriorities.map((p) => <option key={p}>{p}</option>)}
+        </select>
+        <input className="field w-32" value={who} onChange={(e) => setWho(e.target.value)} placeholder="Assigned to" aria-label="Assigned to" />
+        <button type="button" className="btn btn-primary" disabled={busy} onClick={add}>{busy ? "Adding…" : "Create task"}</button>
+      </div>
+      {err && <p className="mt-1 text-xs text-bad">{err}</p>}
+      {FEATURES.messaging && <p className="mt-2 text-xs"><Link className="text-accent hover:underline" href={`/messages/?compose=1&col=${col}&id=${encodeURIComponent(r.id)}`}>Send a message to a colleague about this {MODULES[col].singular.toLowerCase()} →</Link></p>}
+    </Section>
   );
 }
 

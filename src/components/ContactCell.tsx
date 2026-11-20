@@ -21,7 +21,7 @@ export function ContactCell({ column, cell }: { column: string; cell: Cell }) {
     const initials = text.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join("").toUpperCase();
     return <span className="contact-company"><span className="contact-initials" aria-hidden="true">{initials}</span><span className="truncate">{text}</span></span>;
   }
-  const href = column === "email" && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text) ? `mailto:${encodeURIComponent(text)}`
+  const href = ["email", "emailCc1", "emailCc2"].includes(column) && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text) ? `mailto:${encodeURIComponent(text)}`
     : ["phone", "mobile", "whatsapp"].includes(column) && /^\+?[\d\s().-]+$/.test(text) ? `tel:${text.replace(/[^+\d]/g, "")}` : undefined;
   if (href) return <a className="contact-link" href={href} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}>{text}</a>;
   if (column === "remarks") return <span className="contact-note">{text}</span>;

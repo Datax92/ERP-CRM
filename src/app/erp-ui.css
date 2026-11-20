@@ -278,3 +278,131 @@ button:disabled { cursor: not-allowed; }
 .items-converter > summary::before { content: "▸"; transition: transform .15s; }
 .items-converter[open] > summary::before { transform: rotate(90deg); }
 .items-converter > summary::-webkit-details-marker { display: none; }
+
+/* Page backgrounds (Appearance → Page background): colour behind every page, from the theme. */
+html[data-bg="aurora"] body { background: radial-gradient(1200px 600px at 0% 0%, color-mix(in srgb, var(--brand-2) 26%, transparent), transparent 60%), radial-gradient(900px 600px at 100% 10%, color-mix(in srgb, var(--hl) 24%, transparent), transparent 60%), radial-gradient(1000px 700px at 50% 100%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 60%), var(--paper); background-attachment: fixed; }
+html[data-bg="sunrise"] body { background: linear-gradient(160deg, #FFF1E6 0%, #FDE7EF 35%, #EAF2FF 75%, #E8F7F3 100%); background-attachment: fixed; }
+html[data-bg="meadow"] body { background: linear-gradient(150deg, #EAFBF1 0%, #F4FBE3 45%, #FFF9E0 100%); background-attachment: fixed; }
+html[data-bg="ocean"] body { background: linear-gradient(160deg, #E6F6FB 0%, #EEF0FE 55%, #F6EEFB 100%); background-attachment: fixed; }
+html[data-bg="tint"] body { background: linear-gradient(180deg, var(--brand-wash), var(--paper) 420px); background-attachment: fixed; }
+.ap-bg-art { position: relative; display: block; }
+.ap-bg-art i { position: absolute; left: 12%; right: 12%; height: 14%; border-radius: 4px; background: rgba(255,255,255,.92); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.ap-bg-art i:nth-child(1) { top: 16%; right: 40%; }
+.ap-bg-art i:nth-child(2) { top: 40%; }
+.ap-bg-art i:nth-child(3) { top: 64%; }
+@media print { html[data-bg] body { background: #fff !important; } }
+
+/* Named attachments: one chip per document type, numbered rows with an editable name. */
+.erp-attach-names { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.erp-attach-chip { padding: 4px 10px; border: 1px dashed var(--rule-2); border-radius: 999px; font-size: 12px; color: var(--ink-2); background: var(--card); transition: background .15s, border-color .15s, color .15s; }
+.erp-attach-chip:hover { border-color: var(--brand-2); color: var(--brand-2); }
+.erp-attach-chip.on { border-style: solid; border-color: color-mix(in srgb, var(--good, #16a34a) 45%, transparent); background: color-mix(in srgb, var(--good, #16a34a) 10%, var(--card)); color: var(--good, #15803d); font-weight: 600; }
+.erp-attach-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--rule); border-radius: 6px; font-size: 13px; background: var(--card); }
+.erp-attach-no { flex: 0 0 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--brand-wash); color: var(--brand); font-size: 11px; font-weight: 700; }
+.erp-attach-label { width: 210px; flex: 0 0 auto; height: 30px; padding-top: 2px; padding-bottom: 2px; font-weight: 600; }
+
+/* Tasks raised from a record. */
+.erp-record-tasks { margin-bottom: 10px; border: 1px solid var(--rule); border-radius: 6px; }
+.erp-record-tasks li { display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 13px; border-bottom: 1px solid var(--rule); }
+.erp-record-tasks li:last-child { border-bottom: 0; }
+.erp-record-tasks li > button { color: var(--muted); }
+.erp-record-tasks li > button:hover { color: var(--brand); }
+.erp-record-tasks li.done a { text-decoration: line-through; color: var(--muted); }
+.erp-task-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.erp-task-form .field { height: 32px; }
+
+/* Printed documents: quotation, sales order, purchase order, proforma, delivery note. */
+.print-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between; margin: 14px 0; }
+.trade-doc { max-width: 210mm; margin: 0 auto 40px; padding: 16mm 14mm; background: #fff; color: #111; border: 1px solid var(--rule); box-shadow: 0 2px 12px rgba(0,0,0,.06); font-size: 12.5px; line-height: 1.45; }
+.trade-doc h1 { font-size: 22px; font-weight: 700; color: var(--brand); margin: 0 0 4px; }
+.trade-doc-head { display: flex; justify-content: space-between; gap: 20px; padding-bottom: 12px; border-bottom: 3px solid var(--brand); }
+.trade-doc-head p { margin: 0; color: #444; }
+.trade-doc-title { text-align: right; }
+.trade-doc-title h2 { margin: 0; font-size: 20px; letter-spacing: .06em; text-transform: uppercase; color: #111; }
+.trade-doc-title p { font-weight: 700; color: var(--brand-2); }
+.trade-doc-parties { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; margin: 16px 0; }
+.trade-doc-parties h3, .trade-doc-notes h3 { margin: 0 0 4px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: #666; }
+.trade-doc-parties b { font-size: 14px; }
+.trade-doc-parties p { margin: 0; }
+.trade-doc-parties dl { margin: 0; display: grid; gap: 3px; }
+.trade-doc-parties dl div { display: grid; grid-template-columns: 130px 1fr; gap: 8px; }
+.trade-doc-parties dt { color: #666; }
+.trade-doc-parties dd { margin: 0; font-weight: 600; }
+.trade-doc-items { width: 100%; border-collapse: collapse; margin: 8px 0 14px; }
+.trade-doc-items th, .trade-doc-items td { border: 1px solid #d5d8de; padding: 6px 8px; text-align: left; vertical-align: top; }
+.trade-doc-items thead th { background: var(--brand); color: #fff; font-weight: 600; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.trade-doc-items .r { text-align: right; white-space: nowrap; }
+.trade-doc-items tfoot th { background: #f3f4f6; font-size: 13.5px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.trade-doc-notes { margin: 10px 0; white-space: pre-line; }
+.trade-doc-notes p { margin: 0; }
+.trade-doc-sign { display: grid; grid-template-columns: 1fr 1fr; gap: 50px; margin-top: 50px; color: #444; }
+.trade-doc-sign span { display: block; height: 1px; margin-bottom: 6px; background: #888; }
+@media print {
+  [data-noprint] { display: none !important; }
+  .trade-doc { border: 0; box-shadow: none; padding: 0; margin: 0; max-width: none; }
+  @page { size: A4; margin: 12mm; }
+}
+
+/* Reports module. */
+.erp-reports { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .erp-reports { grid-template-columns: 1fr; } }
+.erp-report-list { padding: 10px; position: sticky; top: 10px; }
+.erp-report-list h4 { margin: 10px 8px 4px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.erp-report-list button { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 8px; border-radius: 5px; text-align: left; font-size: 13px; color: var(--ink-2); }
+.erp-report-list button:hover { background: var(--paper-2); }
+.erp-report-list button[aria-current] { background: var(--brand-wash); color: var(--brand); font-weight: 600; }
+.erp-report-mem { display: flex; align-items: center; }
+.erp-report-mem .erp-report-del { width: auto; color: var(--muted); }
+.erp-report-mem .erp-report-del:hover { color: var(--bad, #b91c1c); }
+.erp-report-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 14px 16px; margin-bottom: 12px; }
+.erp-report-head h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.erp-report-head p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.erp-report-filters-text { color: var(--brand) !important; font-weight: 600; }
+.erp-report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.erp-report-table th, .erp-report-table td { padding: 7px 10px; border-bottom: 1px solid var(--rule); text-align: left; white-space: nowrap; }
+.erp-report-table thead th { background: #F1F2F4; font-size: 11.5px; font-weight: 600; color: var(--ink-2); }
+.erp-report-table tbody tr:nth-child(even) { background: #FAFBFC; }
+.erp-report-table tfoot th { background: var(--brand-wash); font-weight: 700; }
+.erp-report-table .r { text-align: right; }
+@media print { .erp-reports { grid-template-columns: 1fr; } .erp-page-header { display: none; } }
+
+/* Messages. */
+.erp-mail { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 800px) { .erp-mail { grid-template-columns: 1fr; } }
+.erp-mail-list { max-height: 70vh; overflow: auto; }
+.erp-mail-list li { border-bottom: 1px solid var(--rule); }
+.erp-mail-list button { display: grid; grid-template-columns: 1fr auto; gap: 1px 8px; width: 100%; padding: 10px 12px; text-align: left; }
+.erp-mail-list button:hover { background: var(--paper-2); }
+.erp-mail-list button.on { background: var(--brand-wash); }
+.erp-mail-list button.unread .erp-mail-from, .erp-mail-list button.unread .erp-mail-subj { font-weight: 700; color: var(--ink); }
+.erp-mail-list button.unread { box-shadow: inset 3px 0 0 var(--brand-2); }
+.erp-mail-from { font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.erp-mail-when { font-size: 11px; color: var(--muted); }
+.erp-mail-subj { grid-column: 1 / -1; font-size: 13px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.erp-mail-snip { grid-column: 1 / -1; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.erp-mail-read { padding: 18px 20px; min-height: 300px; }
+.erp-mail-read h2 { margin: 0 0 4px; font-size: 18px; font-weight: 700; }
+.erp-mail-body { margin: 16px 0; white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+.erp-tabs button svg { display: inline; vertical-align: -2px; margin-right: 3px; }
+
+/* Marketing client groups. */
+.erp-mgroups { padding: 14px 16px; border-top: 3px solid var(--brand-2); }
+.erp-mgroups-head h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 15px; font-weight: 700; }
+.erp-mgroups-head p { margin: 2px 0 10px; font-size: 12.5px; color: var(--muted); }
+.erp-mgroups .erp-filter-panel { padding: 0 0 10px; border: 0; }
+.erp-mgroups-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 0; border-top: 1px solid var(--rule); font-size: 13px; }
+.erp-mgroups-sum b { color: var(--brand); }
+.erp-mgroups-sum span { color: var(--muted); }
+.erp-mgroups-sum .spacer { flex: 1; }
+.erp-mgroups-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 14px; }
+@media (max-width: 1000px) { .erp-mgroups-grid { grid-template-columns: 1fr; } }
+.erp-mgroups-table { align-self: start; max-height: 460px; overflow: auto; border: 1px solid var(--rule); border-radius: 6px; }
+.erp-mgroups-table td { white-space: normal; }
+.erp-mgroups-box { padding: 10px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper-2); }
+.erp-mgroups-box h4 { margin: 0 0 8px; font-size: 13px; font-weight: 700; }
+
+/* Dashboard payments card. */
+.dpay { display: grid; gap: 8px; margin: 0; }
+.dpay div { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.dpay dt { color: var(--muted); }
+.dpay dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }

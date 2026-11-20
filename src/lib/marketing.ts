@@ -19,3 +19,12 @@ export function latestMarketingContact(r: Rec, activities: Rec[]): Rec | undefin
   return candidates.filter(x => contactDate(x)).sort((a,b) => contactDate(b).localeCompare(contactDate(a)) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')) || b.id.localeCompare(a.id))[0];
 }
 export const marketingFollowUpDue = (r: Rec, date: string): boolean => marketingStatus(r) !== 'Closed' && Boolean(r.nextFollowUpDate) && r.nextFollowUpDate <= date;
+
+/** WhatsApp wants the number in international form with digits only; a leading 0 is taken as Pakistan. */
+export const waNumber = (raw: string) => {
+  const d = raw.replace(/[^\d+]/g, "");
+  if (d.startsWith("+")) return d.slice(1);
+  if (d.startsWith("00")) return d.slice(2);
+  if (d.startsWith("0")) return `92${d.slice(1)}`;
+  return d;
+};

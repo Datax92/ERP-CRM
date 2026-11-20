@@ -68,6 +68,8 @@ type Props = {
   subtitle?: string;
   report?: (rows: Rec[], s: Store, f: FilterState) => ReactNode;
   extraActions?: ReactNode;
+  /** Shown under the page header, above the filters. */
+  banner?: ReactNode;
   defaultTab?: "records" | "reports";
 };
 
@@ -79,7 +81,7 @@ export function ModulePage(props: Props) {
   );
 }
 
-function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "records" }: Props) {
+function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultTab = "records" }: Props) {
   const s = useStore();
   const m = MODULES[col];
   // Modules re-arranged to the client's sheet start from the new column order.
@@ -254,6 +256,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, defaultTab = "re
         }
       />
 
+      {banner}
       {col === "marketing" && <MarketingChannels rows={s.marketing} value={marketingView} onChange={value => {
         const next = new URLSearchParams(params.toString()); next.set("channel", value); next.delete("new"); next.delete("id"); router.replace(`${pathname}?${next}`, { scroll: false });
       }} />}

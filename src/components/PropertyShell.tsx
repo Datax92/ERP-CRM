@@ -5,9 +5,10 @@ import { SuiteSwitcher } from './SuiteSwitcher';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { signOut } from 'firebase/auth';
-import { Bell, Coins, LogOut, Palette, Plus, Search, Settings } from 'lucide-react';
+import { Bell, Coins, LogOut, Mail, Palette, Plus, Search, Settings } from 'lucide-react';
 import { fb } from '@/lib/firebase';
 import { APPS, NAV } from '@/lib/navigation';
+import { FEATURES } from '@/lib/features';
 import { MODULES, labelOf } from '@/lib/modules';
 import { today } from '@/lib/calc';
 import { SHORTCUTS } from '@/lib/appearance';
@@ -37,6 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const due = s.schedule.filter((task) => !['Completed', 'Cancelled'].includes(task.status) && task.date && task.date <= today());
   const alerts = (['quotations', 'salesOrders', 'purchaseOrders', 'marketing'] as const).flatMap((col) => s[col].filter((r) => r.nextFollowUpDate && r.nextFollowUpDate <= today() && !['Cancelled', 'Closed', 'Won', 'Lost', 'Delivered', 'Received'].includes(r.status)).map((r) => ({ href: `${MODULES[col].href}?id=${r.id}`, label: labelOf(col, r, s) })));
   const alertCount = due.length + alerts.length;
+  const unread = s.inbox.messages.filter((m) => m.toUid === s.user.uid && !m.readAt && !m.archivedByTo).length;
   useEffect(() => {
     const dismiss = (e: PointerEvent) => { if (!navRef.current?.contains(e.target as Node)) setMenu(null); };
     const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') { setMenu(null); setQuery(''); } };
@@ -61,6 +63,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <button className="o-nav-ic mobile-search" aria-label="Open search" onClick={() => toggle('search')}><Search size={16} /></button>
       <button className="o-nav-ic" title="New record" aria-label="New record" aria-expanded={menu === 'new'} onClick={() => toggle('new')}><Plus size={16} /></button>
       <button className="o-nav-ic" title="Currency converter" aria-label="Currency converter" onClick={() => { close(); setConverterOpen(true); }}><Coins size={16} /></button>
+      {FEATURES.messaging && <Link className="o-nav-ic" href="/messages" title={unread ? `${unread} unread messages` : 'Messages'} aria-label={unread ? `Messages, ${unread} unread` : 'Messages'} onClick={close}><Mail size={16} />{unread > 0 && <span className="dot">{unread > 9 ? '9+' : unread}</span>}</Link>}
       <button className="o-nav-ic" title="Alerts" aria-label="Alerts" aria-expanded={menu === 'alerts'} onClick={() => toggle('alerts')}><Bell size={16} />{alertCount > 0 && <span className="dot">{alertCount > 9 ? '9+' : alertCount}</span>}</button>
       <button className="o-nav-user" aria-label="Account menu" aria-expanded={menu === 'account'} onClick={() => toggle('account')}><span className="ini">{(s.user.displayName || s.user.email || 'Owner').slice(0, 2).toUpperCase()}</span><span className="nm">{s.user.displayName || s.user.email?.split('@')[0] || 'Owner'}</span></button>
       {menu && <div className={`menu erp-nav-dropdown ${menu === 'apps' ? 'erp-app-menu' : ''}`}>

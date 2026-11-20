@@ -50,6 +50,12 @@ export const STAGES: Partial<Record<CollectionName, StageDef>> = {
     won: ["Completed"],
     lost: ["Cancelled"],
   },
+  shipments: {
+    options: ["Booked", "Ready to ship", "In transit", "At port", "Customs clearance", "Out for delivery", "Delivered", "On hold / delayed", "Cancelled"],
+    open: ["Booked", "Ready to ship", "In transit", "At port", "Customs clearance", "Out for delivery", "On hold / delayed"],
+    won: ["Delivered"],
+    lost: ["Cancelled"],
+  },
   costSheets: {
     options: ["Draft", "Costed", "Approved", "Converted", "Cancelled"],
     open: ["Draft", "Costed", "Approved"],

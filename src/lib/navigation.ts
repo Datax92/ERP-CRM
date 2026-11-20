@@ -1,8 +1,12 @@
+import { FEATURES } from './features';
+
 export type AppItem = { href: string; label: string; icon: string };
 export const NAV: { group: string; items: AppItem[] }[] = [
   { group: 'Overview', items: [
     { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { href: '/schedule', label: 'Tasks & Planner', icon: 'tasks' },
+    { href: '/reports', label: 'Reports', icon: 'reports' },
+    ...(FEATURES.messaging ? [{ href: '/messages', label: 'Messages', icon: 'messages' }] : []),
   ] },
   { group: 'Contacts', items: [
     { href: '/clients', label: 'Clients', icon: 'agents' },
@@ -19,6 +23,7 @@ export const NAV: { group: string; items: AppItem[] }[] = [
     { href: '/purchase-orders', label: 'Purchase Orders', icon: 'purchase' },
     { href: '/proforma-invoices', label: 'Proforma Invoices', icon: 'saleInvoice' },
     { href: '/deliveries', label: 'Deliveries', icon: 'inventory' },
+    { href: '/shipments', label: 'Shipments & Docs', icon: 'shipment' },
   ] },
   { group: 'Finance', items: [
     { href: '/payments', label: 'Payments', icon: 'cash' },
