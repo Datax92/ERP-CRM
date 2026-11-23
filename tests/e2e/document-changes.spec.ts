@@ -13,8 +13,8 @@ test.beforeAll(async()=>{
 test.beforeEach(async({page})=>{ await page.goto('/');await page.getByLabel(/^Email/).fill('document@test.local');await page.getByLabel(/^Password/).fill('test1234');await page.getByRole('button',{name:'Sign in',exact:true}).click();await expect(page.getByRole('button',{name:'Customize',exact:true})).toBeVisible(); });
 test('contact filters, grouping, copy emails and editable fields',async({page,context})=>{
  await context.grantPermissions(['clipboard-read','clipboard-write']);await page.goto('/clients/');
- await page.getByRole('button',{name:/^Filters/}).click();await page.getByRole('combobox',{name:'Country',exact:true}).selectOption('Oman');await expect(page.getByRole('combobox',{name:'Country',exact:true}).locator('option[value="Oman"]')).toHaveText('🇴🇲 Oman');
- await page.getByLabel('Region',{exact:true}).selectOption('Gulf'); await page.getByLabel('Sector',{exact:true}).selectOption('Cement');
+ await page.getByRole('button',{name:/^Filters/}).click();await page.getByRole('combobox',{name:'Client country',exact:true}).selectOption('Oman');await expect(page.getByRole('combobox',{name:'Client country',exact:true}).locator('option[value="Oman"]')).toHaveText('🇴🇲 Oman');
+ await page.getByLabel('Client region',{exact:true}).selectOption('Gulf'); await page.getByLabel('Client sector',{exact:true}).selectOption('Cement');
  await expect(page.getByRole('cell',{name:'Document Cement',exact:true})).toBeVisible();await expect(page.getByRole('cell',{name:'Document Power',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'Copy all emails'}).click();await expect(page.getByRole('status')).toContainText('All 1 email'); expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('cement@example.test');
  await page.getByLabel('Group contacts by').selectOption('hierarchy'); await expect(page.getByRole('rowheader',{name:'Gulf / Oman / Cement',exact:true})).toBeVisible();

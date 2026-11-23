@@ -39,6 +39,7 @@ export function ModuleTotalBanner(props: ModuleTotalBannerProps) {
   return <div className="mb-3">
     <div className="card flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3">
       <span className="text-sm text-muted">{summary.count} records</span>
+      {props.col === "payments" && <span className="text-sm text-muted">Debit <strong className="text-good">{fmtMoney(summary.totalReceived, props.targetCurrency)}</strong> · Credit <strong className="text-warn">{fmtMoney(summary.totalPaid, props.targetCurrency)}</strong> · Bank fees <strong>{fmtMoney(summary.totalBankFees, props.targetCurrency)}</strong> · Net</span>}
       <strong className="num text-base">{summary.hasAmounts ? fmtMoney(summary.total, props.targetCurrency) : `${fmtNum(summary.totalQty)} units`}</strong>
       {summary.totalMargin != null && <span className="text-sm text-muted">Margin <strong className={summary.totalMargin < 0 ? 'text-bad' : 'text-good'}>{fmtMoney(summary.totalMargin, props.targetCurrency)} ({fmtPct(summary.marginPct)})</strong></span>}
       <span className="ml-auto text-xs text-muted">{props.rateMode === 'saved' ? 'Saved record rates' : 'Current exchange rates'}</span>
@@ -156,7 +157,7 @@ function DetailedModuleTotalBanner({
         <div className="lg:col-span-7">
           <div className="eyebrow !text-muted mb-1">
             {isPayment
-              ? "Total Payment Volume"
+              ? "Net Cash Flow (Debit − Credit − Bank Fees)"
               : isRfq
                 ? "Total Requested Items"
                 : `Total Value in ${targetCurrency}`}
@@ -202,10 +203,13 @@ function DetailedModuleTotalBanner({
           {isPayment && (
             <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted border-t border-line/60 pt-2">
               <span className="text-good font-medium">
-                Received: {targetCurrency} {fmtNum(summary.totalReceived, 2)}
+                Debit (received): {targetCurrency} {fmtNum(summary.totalReceived, 2)}
               </span>
               <span className="text-warn font-medium">
-                Paid: {targetCurrency} {fmtNum(summary.totalPaid, 2)}
+                Credit (paid): {targetCurrency} {fmtNum(summary.totalPaid, 2)}
+              </span>
+              <span>
+                Bank fees: {targetCurrency} {fmtNum(summary.totalBankFees, 2)}
               </span>
               <span className="font-semibold text-ink">
                 Net Cash Flow: {targetCurrency} {fmtNum(summary.netPayment, 2)}
@@ -394,7 +398,16 @@ export function ModuleTotalFooter({
       <tr>
         {columns.map((c) => {
           // Total Price / Headline Amount column
-          if (c.key === "total" || (c.key === "amount" && col !== "investors")) {
+          if (col === "payments" && (c.key === "debit" || c.key === "credit" || c.key === "bankFees")) {
+            const value = c.key === "debit" ? summary.totalReceived : c.key === "credit" ? summary.totalPaid : summary.totalBankFees;
+            return (
+              <td key={c.key} data-column-key={c.key} className={`num px-4 py-3 text-right font-bold whitespace-nowrap ${c.key === "debit" ? "text-good" : c.key === "credit" ? "text-warn" : "text-ink"}`}>
+                {targetCurrency} {fmtNum(value, 2)}
+              </td>
+            );
+          }
+
+          if ((c.key === "total" && col !== "payments") || (c.key === "amount" && col !== "investors")) {
             return (
               <td key={c.key} data-column-key={c.key} className="num px-4 py-3 text-right font-extrabold text-ink whitespace-nowrap">
                 <div className="text-sm font-bold text-accent">
@@ -431,6 +444,7 @@ export function ModuleTotalFooter({
           if (c.key === "pkr") {
             return (
               <td key={c.key} data-column-key={c.key} className="num px-4 py-3 text-right font-bold text-ink whitespace-nowrap">
+                {col === "payments" && <div className="text-[11px] font-normal text-muted">Net</div>}
                 PKR {fmtNum(summary.totalPKR, 0)}
               </td>
             );
@@ -450,20 +464,6 @@ export function ModuleTotalFooter({
             return (
               <td key={c.key} data-column-key={c.key} className="num px-4 py-3 text-right font-bold text-ink whitespace-nowrap">
                 {targetCurrency} {fmtNum(summary.total, 2)}
-              </td>
-            );
-          }
-
-          // Payment direction / status column
-          if (col === "payments" && c.key === "direction") {
-            return (
-              <td key={c.key} data-column-key={c.key} className="px-4 py-3 text-left text-xs text-muted">
-                {summary.totalReceived != null && (
-                  <div>Rec: {fmtNum(summary.totalReceived, 0)}</div>
-                )}
-                {summary.totalPaid != null && (
-                  <div>Paid: {fmtNum(summary.totalPaid, 0)}</div>
-                )}
               </td>
             );
           }
@@ -510,7 +510,7 @@ export function ModuleTotalEndBar({
       <div className="flex items-center gap-2">
         <Coins size={15} className="text-accent" />
         <span className="font-semibold text-ink">
-          Final Price of All {summary.count} Entries:
+          {col === "payments" ? `Net of All ${summary.count} Entries:` : `Final Price of All ${summary.count} Entries:`}
         </span>
         <span className="font-mono text-sm font-bold text-accent">
           {targetCurrency} {fmtNum(summary.total, 2)}

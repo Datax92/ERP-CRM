@@ -6,7 +6,8 @@ describe('document requirements', () => {
   it('keeps client and supplier contact fields editable and visible, with remarks last', () => {
     for (const name of ['clients', 'suppliers'] as const) {
       const m = MODULES[name];
-      for (const key of ['country', 'sector', 'address', 'headOffice', 'plant', 'contactPerson', 'jobTitle', 'email', 'phone', 'mobile', 'whatsapp', 'remarks']) {
+      const own = name === 'clients' ? ['sector', 'headOffice', 'plant', 'department'] : [];
+      for (const key of [...own, 'country', 'address', 'contactPerson', 'jobTitle', 'email', 'phone', 'mobile', 'whatsapp', 'remarks']) {
         expect(m.fields.some(f => f.name === key), `${name} field ${key}`).toBe(true);
         expect(m.columns.some(c => c.key === key), `${name} column ${key}`).toBe(true);
       }

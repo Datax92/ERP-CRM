@@ -5,6 +5,7 @@ import type { CollectionName, Rec } from "./types";
 export type Flow = { date: string; dir: "in" | "out"; kind: string; party: string; pkr: number; col: CollectionName; id: string };
 
 const pkr = (r: Rec) => num(r.amountPKR);
+const bankFeesPKR = (p: Rec) => num(p.bankFees) * rateOf(p);
 
 /** Every money movement already recorded somewhere else in the system — nothing is re-typed. */
 export function cashFlows(s: Store): Flow[] {
@@ -21,6 +22,8 @@ export function cashFlows(s: Store): Flow[] {
       col: "payments",
       id: p.id,
     });
+    const fees = bankFeesPKR(p);
+    if (fees) out.push({ date: p.date, dir: "out", kind: "Bank charges", party: "", pkr: fees, col: "payments", id: p.id });
   }
   for (const e of s.expenses) out.push({ date: e.date, dir: "out", kind: e.kind === "Expense" ? "Expenses" : e.kind, party: e.paidTo ?? "", pkr: pkr(e), col: "expenses", id: e.id });
   for (const f of s.financeEntries) out.push({ date: f.date, dir: f.direction === "In" ? "in" : "out", kind: f.category || (f.direction === "In" ? "Other income" : "Other payments"), party: "", pkr: pkr(f), col: "financeEntries", id: f.id });
@@ -51,6 +54,10 @@ export function plLines(s: Store, basis: PLBasis): PLLine[] {
     }
   } else {
     for (const p of s.payments) lines.push({ ...z, ...source("payments", p), date: p.date, [p.direction === "Received" ? "revenue" : "cost"]: pkr(p) });
+  }
+  for (const p of s.payments) {
+    const fees = bankFeesPKR(p);
+    if (fees) lines.push({ ...z, ...source("payments", p), date: p.date, description: `Bank fees · ${p.serial || p.reference || "payment"}`, opex: fees });
   }
   for (const e of s.expenses) {
     const key = e.kind === "Charity" ? "charity" : e.kind === "Zakat" ? "zakat" : "opex";

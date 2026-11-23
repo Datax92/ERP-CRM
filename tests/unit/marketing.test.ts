@@ -26,3 +26,10 @@ it('a planned campaign does not reset client inactivity, but actual contact does
  const client={id:'client',name:'Test',createdAt:'2020-01-01'};mem.data.clients.set(client.id,client);mem.data.marketing.set('plan',{id:'plan',clientId:'client',date:'2099-01-01',status:'Planned'});
  expect(clientInfo(client,store()).lastActivity).toBe('2020-01-01');mem.data.marketing.set('actual',{id:'actual',clientId:'client',date:'2099-01-01',status:'Contacted',lastContactDate:'2026-01-01'});expect(clientInfo(client,store()).lastActivity).toBe('2026-01-01');
 });
+
+import { collapseCampaigns } from '@/lib/marketing';
+it('shows one group send as one line but keeps each client', () => {
+  const send = { campaignBatch: 'b1', campaignGroup: 'Middle East', date: '2026-11-01', channel: 'Email' };
+  const lines = collapseCampaigns([{ id: 'a', clientId: 'c1', ...send }, { id: 'x', clientId: 'c3', date: '2026-11-01' }, { id: 'b', clientId: 'c2', ...send }]);
+  expect(lines.map((l) => l.members.map((m) => m.id))).toEqual([['a', 'b'], ['x']]);
+});

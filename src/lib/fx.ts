@@ -329,6 +329,7 @@ export type TotalSummaryResult = {
   marginPct?: number;
   totalReceived?: number;
   totalPaid?: number;
+  totalBankFees?: number;
   netPayment?: number;
   totalQty?: number;
   hasAmounts: boolean;
@@ -361,6 +362,8 @@ export function calculateEntriesTotal({
   let totalMargin = 0;
   let totalReceived = 0;
   let totalPaid = 0;
+  let totalBankFees = 0;
+  let netPKR = 0;
   let totalQty = 0;
   let hasAmounts = false;
 
@@ -375,7 +378,9 @@ export function calculateEntriesTotal({
       currencies[cur] = { count: 0, totalAmount: 0 };
     }
     currencies[cur].count++;
-    currencies[cur].totalAmount += info.amount;
+    currencies[cur].totalAmount += col === "payments"
+      ? (info.direction === "Paid" ? -info.amount : info.amount) - num(r.bankFees)
+      : info.amount;
 
     if (info.qty != null) {
       totalQty += info.qty;
@@ -411,7 +416,10 @@ export function calculateEntriesTotal({
       } else {
         totalReceived += convertedAmount;
       }
-      total += convertedAmount;
+      const fees = num(r.bankFees);
+      totalBankFees += fees * rateToTarget;
+      // Money in is added and money out (with its bank fees) subtracted, never summed together.
+      netPKR += (info.direction === "Paid" ? -info.amount : info.amount) * rateToPKR - fees * rateToPKR;
     } else {
       total += convertedAmount;
     }
@@ -429,7 +437,11 @@ export function calculateEntriesTotal({
   const isSale = col === "quotations" || col === "salesOrders";
   const hasMargin = isSale && (total > 0 || totalCost > 0);
   const marginPct = total > 0 ? (totalMargin / total) * 100 : 0;
-  const netPayment = totalReceived - totalPaid;
+  const netPayment = totalReceived - totalPaid - totalBankFees;
+  if (col === "payments") {
+    total = netPayment;
+    totalPKR = netPKR;
+  }
 
   return {
     total,
@@ -441,6 +453,7 @@ export function calculateEntriesTotal({
     marginPct: hasMargin ? marginPct : undefined,
     totalReceived: col === "payments" ? totalReceived : undefined,
     totalPaid: col === "payments" ? totalPaid : undefined,
+    totalBankFees: col === "payments" ? totalBankFees : undefined,
     netPayment: col === "payments" ? netPayment : undefined,
     totalQty: col === "rfqs" ? totalQty : undefined,
     hasAmounts,

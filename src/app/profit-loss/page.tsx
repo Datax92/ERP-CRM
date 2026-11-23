@@ -115,7 +115,7 @@ export default function ProfitLossPage() {
             const r = s.byId[l.col].get(l.id);
             const income = l.revenue + l.otherIncome;
             const cost = l.cost + l.opex + l.charity + l.zakat;
-            return [<RecordLink key={`${l.col}:${l.id}`} col={l.col} id={l.id}>{r?.serial || r?.referenceNo || r?.title || l.id}</RecordLink>, fmtDate(l.date), l.description || '—', fmtNum(l.qty), fmtNum(income), fmtNum(cost), fmtNum(income - cost), <RecordLink key="attachments" col={l.col} id={l.id}>{`${r?.attachments?.length ?? 0} attachment(s)`}</RecordLink>];
+            return [<RecordLink key={`${l.col}:${l.id}:${l.opex ? "opex" : "main"}`} col={l.col} id={l.id}>{r?.serial || r?.referenceNo || r?.title || l.id}</RecordLink>, fmtDate(l.date), l.description || '—', fmtNum(l.qty), fmtNum(income), fmtNum(cost), fmtNum(income - cost), <RecordLink key="attachments" col={l.col} id={l.id}>{`${r?.attachments?.length ?? 0} attachment(s)`}</RecordLink>];
           })} />
         </ChartCard>
       </div>

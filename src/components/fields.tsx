@@ -69,35 +69,75 @@ export function ListSelect({ list, value, onChange, required, id }: { list: List
   );
 }
 
+/** What a picker can be searched by, and the detail line that tells similar names apart. */
+function refDetails(col: CollectionName, r: Rec) {
+  if (col !== "clients" && col !== "suppliers") return { search: "", detail: "" };
+  const contact = [r.contactPerson, r.email, r.whatsapp || r.mobile || r.phone];
+  const place = [r.sector, r.country, r.headOffice, r.plant];
+  return {
+    search: [...contact, ...place, r.phone, r.mobile, r.region, r.department].filter(Boolean).join(" "),
+    detail: [...contact, r.sector, r.country].filter(Boolean).join(" · "),
+  };
+}
+
 /** Searchable picker for a linked record (client, supplier, sales order…). */
 export function RefSelect({ col, value, onChange, required, id }: { col: CollectionName; value: string; onChange: (v: string) => void; required?: boolean; id?: string }) {
   const s = useStore();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
   const current = value ? s.byId[col].get(value) : undefined;
-  const options = useMemo(
-    () =>
-      s[col]
-        .map((r) => ({ id: r.id, label: labelOf(col, r, s) }))
-        .filter((o) => o.label.toLowerCase().includes(q.toLowerCase()))
-        .sort((a, b) => a.label.localeCompare(b.label))
-        .slice(0, 50),
-    [s, col, q],
-  );
+  const options = useMemo(() => {
+    // Every word must match, in any order; names that start with the search come first.
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    const phrase = words.join(" ");
+    const rank = (label: string) => (!phrase ? 0 : label.startsWith(phrase) ? 0 : label.includes(phrase) ? 1 : 2);
+    return s[col]
+      .map((r) => {
+        const label = labelOf(col, r, s);
+        const { search, detail } = refDetails(col, r);
+        return { id: r.id, label, detail, lower: label.toLowerCase(), hay: `${label} ${search}`.toLowerCase() };
+      })
+      .filter((o) => words.every((w) => o.hay.includes(w)))
+      .sort((a, b) => rank(a.lower) - rank(b.lower) || a.label.localeCompare(b.label))
+      .slice(0, 50);
+  }, [s, col, q]);
+  const pick = (optionId: string) => {
+    onChange(optionId);
+    setOpen(false);
+  };
 
   return (
     <div className="relative">
       <input
         id={id}
         className="field"
-        placeholder="Search…"
+        placeholder={col === "clients" || col === "suppliers" ? "Search name, person, email, phone…" : "Search…"}
         value={open ? q : current ? labelOf(col, current, s) : value ? "(deleted record)" : ""}
         onFocus={() => {
           setQ("");
+          setActive(0);
           setOpen(true);
         }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(e) => {
+          setQ(e.target.value);
+          setActive(0);
+          setOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (!open) return;
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            if (options.length) setActive((active + (e.key === "ArrowDown" ? 1 : -1) + options.length) % options.length);
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (options[active]) pick(options[active].id);
+          } else if (e.key === "Escape") {
+            e.stopPropagation();
+            setOpen(false);
+          }
+        }}
         required={required && !value}
       />
       {value && !open && (
@@ -108,18 +148,18 @@ export function RefSelect({ col, value, onChange, required, id }: { col: Collect
       {open && (
         <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-lg">
           {options.length === 0 && <div className="px-3 py-2 text-sm text-muted">No matches</div>}
-          {options.map((o) => (
+          {options.map((o, i) => (
             <button
               type="button"
               key={o.id}
-              className={`block w-full truncate px-3 py-1.5 text-left text-sm hover:bg-surface-2 ${o.id === value ? "font-medium text-accent" : ""}`}
+              aria-label={o.label}
+              className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-2 ${i === active ? "bg-surface-2" : ""} ${o.id === value ? "font-medium text-accent" : ""}`}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                onChange(o.id);
-                setOpen(false);
-              }}
+              onMouseEnter={() => setActive(i)}
+              onClick={() => pick(o.id)}
             >
-              {o.label}
+              <span className="block truncate">{o.label}</span>
+              {o.detail && <span className="block truncate text-xs font-normal text-muted">{o.detail}</span>}
             </button>
           ))}
         </div>

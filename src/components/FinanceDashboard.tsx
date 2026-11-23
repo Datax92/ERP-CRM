@@ -132,7 +132,7 @@ export function FinanceDashboard({ s, from, to }: { s: Store; from: string; to: 
               .slice(0, 25)
               .map((f) => [
                 fmtDate(f.date),
-                <RecordLink key={f.col + f.id} col={f.col} id={f.id}>
+                <RecordLink key={f.col + f.id + f.kind} col={f.col} id={f.id}>
                   {f.kind}
                 </RecordLink>,
                 f.party || "—",

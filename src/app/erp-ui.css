@@ -70,6 +70,13 @@ button:disabled { cursor: not-allowed; }
 .erp-tabs { display: inline-flex; border: 1px solid var(--rule-2); border-radius: 4px; overflow: hidden; }
 .erp-tabs button { padding: 6px 12px; font-size: 13px; border-right: 1px solid var(--rule); }
 .erp-tabs button[aria-selected="true"] { background: var(--brand-wash); color: var(--brand); font-weight: 600; }
+.erp-value-tabs { display: grid; gap: 6px; margin-bottom: 10px; min-width: 0; }
+.erp-value-tab-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.erp-value-tab-row > span { flex: 0 0 58px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.erp-value-tab-row > div { display: flex; gap: 4px; min-width: 0; overflow-x: auto; padding-bottom: 2px; }
+.erp-value-tab-row button { flex: none; padding: 4px 10px; font-size: 12.5px; white-space: nowrap; border: 1px solid var(--rule-2); border-radius: 4px; background: var(--paper); }
+.erp-value-tab-row button[aria-selected="true"] { background: var(--brand-wash); border-color: var(--brand); color: var(--brand); font-weight: 600; }
+.erp-table tbody tr.erp-campaign-member td:first-child { padding-left: 36px; font-weight: 400; }
 .erp-dialog-overlay { z-index: 100; align-items: center; justify-content: center; padding: 28px; }
 .erp-dialog { max-height: calc(100dvh - 56px); height: auto; border-radius: 6px; overflow: hidden; background: var(--paper); }
 .erp-dialog .drawer-title { font-size: 20px; }

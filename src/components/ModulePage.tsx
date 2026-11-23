@@ -7,7 +7,7 @@ import { useStore } from "./DataProvider";
 import { ModuleTotalBanner, ModuleTotalEndBar, ModuleTotalFooter } from "./ModuleTotalSummary";
 import { countryFlag } from "@/lib/country";
 import { MarketingChannels } from "./MarketingChannels";
-import { marketingChannel, type MarketingChannel } from "@/lib/marketing";
+import { collapseCampaigns, marketingChannel, summarize, type MarketingCampaign, type MarketingChannel } from "@/lib/marketing";
 import { ContactCell } from "./ContactCell";
 import { useColumnDrag } from "./useColumnDrag";
 import { useTableColumns } from "./TableColumns";
@@ -15,7 +15,8 @@ import { stageKind } from "@/lib/stages";
 import { RecordDrawer } from "./RecordDrawer";
 import { CellView, Empty, PageHeader } from "./ui";
 import { fetchExchangeRates, type ExchangeRateData } from "@/lib/fx";
-import { MODULES, type ModuleConfig } from "@/lib/modules";
+import { MODULES, type Cell, type ModuleConfig } from "@/lib/modules";
+import { fmtDate } from "@/lib/calc";
 import { deliveryInfo, type Store } from "@/lib/derive";
 import type { CollectionName, Rec } from "@/lib/types";
 
@@ -37,6 +38,7 @@ export function applyFilters(m: ModuleConfig, rows: Rec[], f: FilterState, s: St
       const hay = [
         ...m.searchKeys.map((k) => r[k]),
         ...m.columns.slice(0, 4).map((c) => c.cell(r, s).text),
+        ...(m.col === "marketing" ? [s.byId.clients.get(r.clientId)?.email, s.byId.clients.get(r.clientId)?.whatsapp, s.byId.clients.get(r.clientId)?.mobile] : []),
         ...(r.items ?? []).map((i: Rec) => `${i.description} ${i.product} ${i.brand}`),
       ]
         .join(" ")
@@ -47,7 +49,30 @@ export function applyFilters(m: ModuleConfig, rows: Rec[], f: FilterState, s: St
   });
 }
 
-const contactGroup = (r: Rec, key: string) => key === "hierarchy" ? [r.region, r.country, r.sector].map(x => x || "Unspecified").join(" / ") : String(r[key] || "Unspecified");
+const contactGroup = (r: Rec, key: string, col: CollectionName) => key === "hierarchy" ? (col === "clients" ? [r.region, r.country, r.sector] : [r.region, r.country]).map(x => x || "Unspecified").join(" / ") : String(r[key] || "Unspecified");
+
+type TableLine = { r: Rec; campaign?: MarketingCampaign; member?: boolean };
+
+/** The single line shown for a group send: how many people were reached, and in which sectors. */
+function campaignCell(key: string, g: MarketingCampaign, open: boolean, s: Store, fallback: Cell): Cell {
+  const clients = g.members.map((x) => s.byId.clients.get(x.clientId)).filter((c): c is Rec => !!c);
+  const count = new Set(g.members.map((x) => x.clientId || x.id)).size;
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  switch (key) {
+    case "who": return { text: `${open ? "▾" : "▸"} ${g.row.campaignGroup} (${plural(count, "client")})`, sort: fallback.sort };
+    case "region": return { text: summarize(clients.map((c) => c.region), "regions") || "—" };
+    case "sector": return { text: summarize(clients.map((c) => c.sector), "sectors") || "—" };
+    case "clientEmail": return { text: plural(clients.filter((c) => c.email).length, "email") };
+    case "clientWhatsapp": return { text: plural(clients.filter((c) => c.whatsapp || c.mobile).length, "number") };
+    case "status": return new Set(g.members.map((x) => x.status)).size > 1 ? { text: "Mixed", tone: "info" } : fallback;
+    case "response": return new Set(g.members.map((x) => x.response)).size > 1 ? { text: "Mixed", tone: "info" } : fallback;
+    case "lastContactDate": return { text: fmtDate(g.row.lastContactDate || g.row.date) || "—", sort: g.row.lastContactDate || g.row.date || "" };
+    case "lastContactDetails": return { text: g.row.lastContactDetails || g.row.subject || "—" };
+    case "activity":
+    case "inactiveDays": return { text: "—" };
+    default: return fallback;
+  }
+}
 
 const FINANCIAL_MODULES: Record<string, boolean> = {
   deliveries: true,
@@ -85,12 +110,13 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
   const s = useStore();
   const m = MODULES[col];
   // Modules re-arranged to the client's sheet start from the new column order.
-  const table = useTableColumns(col === "marketing" ? "marketing-client-contact-v2" : ["rfqs", "quotations", "salesOrders", "purchaseOrders"].includes(col) ? `${col}-client-sheet-v1` : col, m.columns);
+  const table = useTableColumns(col === "marketing" ? "marketing-client-contact-v3" : col === "payments" ? "payments-debit-credit-v1" : ["rfqs", "quotations", "salesOrders", "purchaseOrders"].includes(col) ? `${col}-client-sheet-v1` : col, m.columns);
   const tableRef = useRef<HTMLTableElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const columnDrag = useColumnDrag(tableRef, viewportRef, table.move);
   const [rfqView, setRfqView] = useState("open");
   const [groupBy, setGroupBy] = useState("");
+  const [openCampaigns, setOpenCampaigns] = useState<Set<string>>(new Set());
   const [copyMessage, setCopyMessage] = useState("");
   const isContact = col === "clients" || col === "suppliers";
   const router = useRouter();
@@ -198,9 +224,14 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
           : String(a.k).localeCompare(String(b.k))) * sort.dir
     );
     const result = keyed.map((x) => x.r);
-    if (groupBy) result.sort((a, b) => contactGroup(a, groupBy).localeCompare(contactGroup(b, groupBy)));
+    if (groupBy) result.sort((a, b) => contactGroup(a, groupBy, col).localeCompare(contactGroup(b, groupBy, col)));
     return result;
-  }, [filtered, sort, m, s, groupBy]);
+  }, [filtered, sort, m, s, groupBy, col]);
+  // A group send is one line in the marketing list; opening it shows each client.
+  const lines = useMemo<TableLine[]>(() => col !== "marketing" ? sorted.map((r) => ({ r })) : collapseCampaigns(sorted).flatMap((g) =>
+    g.members.length < 2 ? [{ r: g.row }] : [{ r: g.row, campaign: g }, ...(openCampaigns.has(g.key) ? g.members.map((r) => ({ r, member: true })) : [])]
+  ), [col, sorted, openCampaigns]);
+  const toggleCampaign = (key: string) => setOpenCampaigns((prev) => { const next = new Set(prev); if (!next.delete(key)) next.add(key); return next; });
 
   const panelFilters = Object.values(f.sel).filter(Boolean).length + (f.from ? 1 : 0) + (f.to ? 1 : 0);
   const activeFilters = panelFilters + (f.q ? 1 : 0);
@@ -264,6 +295,28 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
       {col === "rfqs" && <div className="erp-tabs mb-3" role="tablist" aria-label="RFQ sections">
         {[["open", "Open RFQs"], ["closed", "Closed RFQs"], ["all", "All RFQs"]].map(([key, label]) => <button key={key} role="tab" aria-selected={rfqView === key} onClick={() => setRfqView(key)}>{label} ({s.rfqs.filter(r => key === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === key).length})</button>)}
       </div>}
+      {col === "clients" && <div className="erp-value-tabs">
+        {(["sector", "country"] as const).map((key) => {
+          // Counts respect every other filter, so the two rows can be combined.
+          const base = applyFilters(m, s.clients, { ...f, sel: { ...f.sel, [key]: "" } }, s);
+          const selected = f.sel[key] ?? "";
+          const counts = new Map<string, number>();
+          base.forEach((r) => { if (r[key]) counts.set(r[key], (counts.get(r[key]) ?? 0) + 1); });
+          if (selected && !counts.has(selected)) counts.set(selected, 0);
+          const label = key === "sector" ? "Sector" : "Country";
+          return <div key={key} className="erp-value-tab-row">
+            <span>{label}</span>
+            <div role="tablist" aria-label={`Clients by ${key}`}>
+              <button type="button" role="tab" aria-selected={!selected} onClick={() => setF({ ...f, sel: { ...f.sel, [key]: "" } })}>All ({base.length})</button>
+              {[...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([value, n]) => (
+                <button type="button" role="tab" key={value} aria-selected={selected === value} onClick={() => setF({ ...f, sel: { ...f.sel, [key]: value } })}>
+                  {key === "country" && countryFlag(value) ? `${countryFlag(value)} ` : ""}{value} ({n})
+                </button>
+              ))}
+            </div>
+          </div>;
+        })}
+      </div>}
       {/* Filters: one compact toolbar; the detailed filters open only when asked for. */}
       <div className="erp-filters card">
         <div className="erp-filter-bar">
@@ -279,7 +332,7 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
           </label>
           {isContact && <label className="erp-filter-inline">
             <span>Group by</span>
-            <select className="field" aria-label="Group contacts by" value={groupBy} onChange={e => setGroupBy(e.target.value)}><option value="">No grouping</option><option value="hierarchy">Region → Country → Sector</option><option value="region">Region</option><option value="country">Country</option><option value="sector">Sector</option></select>
+            <select className="field" aria-label="Group contacts by" value={groupBy} onChange={e => setGroupBy(e.target.value)}><option value="">No grouping</option><option value="hierarchy">{col === "clients" ? "Region → Country → Sector" : "Region → Country"}</option><option value="region">Region</option><option value="country">Country</option>{col === "clients" && <option value="sector">Sector</option>}</select>
           </label>}
           <button type="button" className={`btn ${showFilters || panelFilters ? "erp-filter-on" : ""}`} aria-expanded={showFilters} onClick={() => setShowFilters(v => !v)}>
             <SlidersHorizontal size={14} /> Filters{panelFilters ? ` (${panelFilters})` : ""}
@@ -404,18 +457,19 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
                 </tr>
               </thead>
               <tbody>
-                {sorted.slice(0, limit).map((r, index) => (
-                  <Fragment key={r.id}>
-                  {groupBy && (index === 0 || contactGroup(sorted[index - 1], groupBy) !== contactGroup(r, groupBy)) && <tr className="bg-surface-2"><th scope="rowgroup" colSpan={table.columns.length} className="px-4 py-2 text-left text-xs font-semibold">{contactGroup(r, groupBy)}</th></tr>}
+                {lines.slice(0, limit).map(({ r, campaign, member }, index) => (
+                  <Fragment key={campaign ? `campaign-${campaign.key}` : r.id}>
+                  {groupBy && (index === 0 || contactGroup(lines[index - 1].r, groupBy, col) !== contactGroup(r, groupBy, col)) && <tr className="bg-surface-2"><th scope="rowgroup" colSpan={table.columns.length} className="px-4 py-2 text-left text-xs font-semibold">{contactGroup(r, groupBy, col)}</th></tr>}
                   <tr
-                    key={r.id}
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openRecord(col, r.id); } }}
-                    className="group cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-accent-soft/40"
-                    onClick={() => openRecord(col, r.id)}
+                    aria-expanded={campaign ? openCampaigns.has(campaign.key) : undefined}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (campaign) toggleCampaign(campaign.key); else openRecord(col, r.id); } }}
+                    className={`group cursor-pointer border-b border-line transition-colors last:border-0 hover:bg-accent-soft/40 ${member ? "erp-campaign-member" : ""}`}
+                    onClick={() => { if (campaign) toggleCampaign(campaign.key); else openRecord(col, r.id); }}
                   >
                     {table.columns.map((c, ci) => {
-                      const cell = c.cell(r, s);
+                      const base = c.cell(r, s);
+                      const cell = campaign ? campaignCell(c.key, campaign, openCampaigns.has(campaign.key), s, base) : base;
                       return (
                       <td
                         key={c.key}
@@ -445,10 +499,10 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
                 />
               )}
             </table>
-            {sorted.length > limit && (
+            {lines.length > limit && (
               <div className="border-t border-line p-2 text-center">
                 <button className="btn" onClick={() => setLimit(limit + 200)}>
-                  Show more ({sorted.length - limit} remaining)
+                  Show more ({lines.length - limit} remaining)
                 </button>
               </div>
             )}

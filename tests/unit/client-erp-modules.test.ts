@@ -7,6 +7,7 @@ import { reportByKey, STANDARD_REPORTS } from '@/lib/standardReports';
 import { conversionsFor } from '@/lib/workflow';
 import { waNumber } from '@/lib/marketing';
 import { DEFAULT_SETTINGS, mergeSettings } from '@/lib/settings';
+import { cashFlows, plLines, sumPL } from '@/lib/finance';
 
 beforeEach(() => mem.reset());
 
@@ -63,4 +64,25 @@ it('formats WhatsApp numbers for wa.me links', () => {
   expect(waNumber('0300-1234567')).toBe('923001234567');
   expect(waNumber('+971 50 123 4567')).toBe('971501234567');
   expect(waNumber('0092 300 1234567')).toBe('923001234567');
+});
+
+it('keeps client and supplier filters separate, with the revision fields in the right module', async () => {
+  await saveRecord('clients', { id: 'c1', name: 'Lucky Cement', region: 'Punjab', country: 'Pakistan', headOffice: 'Karachi', plant: 'Pezu', department: 'Procurement' });
+  await saveRecord('suppliers', { id: 's1', name: 'Grundfos', region: 'Europe', country: 'Denmark' });
+  const options = (col: 'clients' | 'suppliers', key: string) => MODULES[col].filters.find((f) => f.key === key)!.options(store());
+  expect(options('clients', 'region')).toEqual(['Punjab']);
+  expect(options('suppliers', 'country')).toEqual(['Denmark']);
+  for (const key of ['company', 'headOffice', 'plant', 'department']) expect(MODULES.clients.filters.some((f) => f.key === key), key).toBe(true);
+  for (const key of ['sector', 'headOffice', 'plant']) {
+    expect(MODULES.suppliers.fields.some((f) => f.name === key), key).toBe(false);
+    expect(MODULES.suppliers.columns.some((c) => c.key === key), key).toBe(false);
+    expect(MODULES.suppliers.filters.some((f) => f.key === key), key).toBe(false);
+  }
+});
+
+it('counts a supplier payment bank fee as a bank charge without reducing the payable', async () => {
+  await saveRecord('payments', { id: 'p1', direction: 'Paid', date: '2026-11-01', amount: 1000, bankFees: 50, currency: 'PKR' }, { amountField: 'amount' });
+  const flows = cashFlows(store());
+  expect(flows.map((f) => [f.kind, f.pkr])).toEqual([['Vendor payments', 1000], ['Bank charges', 50]]);
+  expect(sumPL(plLines(store(), 'cash'))).toMatchObject({ cost: 1000, opex: 50 });
 });

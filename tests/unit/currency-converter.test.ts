@@ -233,6 +233,21 @@ describe("Currency conversion utilities", () => {
       expect(result.totalReceived).toBe(1000);
       expect(result.totalPaid).toBe(400);
       expect(result.netPayment).toBe(600);
+      expect(result.total).toBe(600);
+    });
+
+    it("keeps debit and credit apart and takes bank fees out of the net", () => {
+      const result = calculateEntriesTotal({
+        rows: [
+          { id: "p1", amount: 1000, direction: "Received", currency: "USD" },
+          { id: "p2", amount: 400, bankFees: 25, direction: "Paid", currency: "USD" },
+        ] as any[],
+        col: "payments",
+        targetCurrency: "USD",
+        ratesData: fakeRates,
+        rateMode: "realtime",
+      });
+      expect(result).toMatchObject({ totalReceived: 1000, totalPaid: 400, totalBankFees: 25, netPayment: 575, total: 575 });
     });
 
     it("respects saved document rate when rateMode is set to 'saved'", () => {

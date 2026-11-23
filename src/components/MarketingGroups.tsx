@@ -101,8 +101,9 @@ export function MarketingGroups() {
     setMsg("");
     try {
       const m = MODULES.marketing;
+      const campaignBatch = newId("marketing");
       for (const c of group) {
-        await saveRecord("marketing", { id: newId("marketing"), ...m.defaults(s), clientId: c.id, date: log.date, channel: log.channel, status: log.nextFollowUpDate ? "Follow-up" : "Contacted", lastContactDate: log.date, lastContactDetails: log.details.trim() || log.subject.trim(), subject: log.subject.trim(), product: log.product, nextFollowUpDate: log.nextFollowUpDate, response: "No response", campaignGroup: groupName }, { serialPrefix: m.prefix });
+        await saveRecord("marketing", { id: newId("marketing"), ...m.defaults(s), clientId: c.id, date: log.date, channel: log.channel, status: log.nextFollowUpDate ? "Follow-up" : "Contacted", lastContactDate: log.date, lastContactDetails: log.details.trim() || log.subject.trim(), subject: log.subject.trim(), product: log.product, nextFollowUpDate: log.nextFollowUpDate, response: "No response", campaignGroup: groupName, campaignBatch }, { serialPrefix: m.prefix });
       }
       setMsg(`Recorded for ${group.length} clients on ${fmtDate(log.date)}.`);
     } catch (e) {

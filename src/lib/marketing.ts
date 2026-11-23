@@ -1,5 +1,27 @@
 import type { Rec } from './types';
 
+/** One group send: every client's activity stays stored, but the list shows it as a single line. */
+export type MarketingCampaign = { key: string; row: Rec; members: Rec[] };
+const campaignKey = (r: Rec) => r.campaignBatch || (r.campaignGroup ? [r.campaignGroup, r.date, r.channel, r.subject].join('|') : '');
+export function collapseCampaigns(rows: Rec[]): MarketingCampaign[] {
+  const out: MarketingCampaign[] = [];
+  const byKey = new Map<string, MarketingCampaign>();
+  for (const r of rows) {
+    const key = campaignKey(r);
+    const hit = key ? byKey.get(key) : undefined;
+    if (hit) { hit.members.push(r); continue; }
+    const c = { key: key || r.id, row: r, members: [r] };
+    if (key) byKey.set(key, c);
+    out.push(c);
+  }
+  return out;
+}
+/** Distinct values, or a count once there are too many to read in a cell. */
+export const summarize = (values: unknown[], noun: string) => {
+  const u = [...new Set(values.filter(Boolean).map(String))];
+  return u.length > 3 ? `${u.length} ${noun}: ${u.slice(0, 3).join(', ')}…` : u.join(', ');
+};
+
 export type MarketingChannel = 'all' | 'email' | 'whatsapp' | 'call' | 'other';
 export function marketingChannel(value?: string): Exclude<MarketingChannel, 'all'> {
   const key = String(value || '').toLowerCase().replace(/[^a-z]/g, '');
