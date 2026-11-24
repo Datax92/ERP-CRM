@@ -23,10 +23,11 @@ export function ListSelect({ list, value, onChange, required, id }: { list: List
   async function add() {
     const v = draft.trim();
     if (!v) return;
-    if (!options.includes(v)) await saveSettings({ ...settings, [list]: [...options, v] });
+    // Fill the form straight away, so saving the record right after cannot miss the new value.
     onChange(v);
     setAdding(false);
     setDraft("");
+    if (!options.includes(v)) await saveSettings({ ...settings, [list]: [...options, v] });
   }
 
   if (adding)
