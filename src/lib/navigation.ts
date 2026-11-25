@@ -23,7 +23,7 @@ export const NAV: { group: string; items: AppItem[] }[] = [
     { href: '/purchase-orders', label: 'Purchase Orders', icon: 'purchase' },
     { href: '/proforma-invoices', label: 'Proforma Invoices', icon: 'saleInvoice' },
     { href: '/deliveries', label: 'Deliveries', icon: 'inventory' },
-    { href: '/shipments', label: 'Shipments & Docs', icon: 'shipment' },
+    { href: '/shipments', label: 'Payment Invoices/Shipping Docs', icon: 'shipment' },
   ] },
   { group: 'Finance', items: [
     { href: '/payments', label: 'Payments', icon: 'cash' },

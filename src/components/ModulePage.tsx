@@ -17,7 +17,7 @@ import { CellView, Empty, PageHeader } from "./ui";
 import { fetchExchangeRates, type ExchangeRateData } from "@/lib/fx";
 import { MODULES, type Cell, type ModuleConfig } from "@/lib/modules";
 import { fmtDate } from "@/lib/calc";
-import { deliveryInfo, type Store } from "@/lib/derive";
+import { deliveryInfo, shipmentOrder, soInfo, type Store } from "@/lib/derive";
 import type { CollectionName, Rec } from "@/lib/types";
 
 export type FilterState = { q: string; from: string; to: string; sel: Record<string, string> };
@@ -114,7 +114,31 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
   const tableRef = useRef<HTMLTableElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const columnDrag = useColumnDrag(tableRef, viewportRef, table.move);
-  const [rfqView, setRfqView] = useState("open");
+  const [section, setSection] = useState(col === "shipments" ? "all" : "open");
+  const sections = useMemo(() => {
+    if (!["rfqs", "quotations", "salesOrders", "purchaseOrders", "shipments"].includes(col)) return [];
+    const name = col === "rfqs" ? "RFQs" : col === "shipments" ? "Shipments" : m.title;
+    const all = s[col];
+    const open = all.filter(r => stageKind(col, r.status) === "open");
+    const closed = all.filter(r => stageKind(col, r.status) !== "open");
+    const workflow = [{ key: "open", label: `Open ${name}`, rows: open }, { key: "closed", label: `Closed ${name}`, rows: closed }];
+    if (col === "rfqs") return [...workflow, { key: "all", label: "All RFQs", rows: all }];
+    if (col !== "shipments") return workflow;
+    const payments = new Map<string, string>();
+    const payment = (shipment: Rec) => {
+      const order = shipmentOrder(shipment, s);
+      if (!order || order.status === "Cancelled" || shipment.status === "Cancelled") return "";
+      if (!payments.has(order.id)) payments.set(order.id, soInfo(order, s).payment);
+      return payments.get(order.id);
+    };
+    return [
+      { key: "all", label: "Shipping Docs / Invoice", rows: all },
+      { key: "paid", label: "Payment Received", rows: all.filter(r => payment(r) === "Paid") },
+      ...workflow,
+      { key: "due", label: "Payment Dues", rows: all.filter(r => ["Unpaid", "Partially paid"].includes(payment(r) || "")) },
+    ];
+  }, [col, m.title, s]);
+  const sectionRows = sections.find(item => item.key === section)?.rows ?? s[col];
   const [groupBy, setGroupBy] = useState("");
   const [openCampaigns, setOpenCampaigns] = useState<Set<string>>(new Set());
   const [copyMessage, setCopyMessage] = useState("");
@@ -207,10 +231,9 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
   };
   const close = () => router.replace(recordUrl(), { scroll: false });
 
-  const filtered = useMemo(() => applyFilters(m, s[col], f, s).filter(r =>
-    (col !== "rfqs" || rfqView === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === rfqView) &&
+  const filtered = useMemo(() => applyFilters(m, sectionRows, f, s).filter(r =>
     (col !== "marketing" || marketingView === "all" || marketingChannel(r.channel) === marketingView)
-  ), [m, s, col, f, rfqView, marketingView]);
+  ), [m, s, col, f, sectionRows, marketingView]);
   const sorted = useMemo(() => {
     const c = m.columns.find((x) => x.key === sort.key) ?? m.columns[0];
     const keyed = filtered.map((r) => {
@@ -292,8 +315,8 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
         const next = new URLSearchParams(params.toString()); next.set("channel", value); next.delete("new"); next.delete("id"); router.replace(`${pathname}?${next}`, { scroll: false });
       }} />}
       {copyMessage && <p role="status" className="mb-3 text-sm">{copyMessage}</p>}
-      {col === "rfqs" && <div className="erp-tabs mb-3" role="tablist" aria-label="RFQ sections">
-        {[["open", "Open RFQs"], ["closed", "Closed RFQs"], ["all", "All RFQs"]].map(([key, label]) => <button key={key} role="tab" aria-selected={rfqView === key} onClick={() => setRfqView(key)}>{label} ({s.rfqs.filter(r => key === "all" || (stageKind("rfqs", r.status) === "open" ? "open" : "closed") === key).length})</button>)}
+      {sections.length > 0 && <div className="erp-tabs mb-3" role="tablist" aria-label={col === "rfqs" ? "RFQ sections" : m.title}>
+        {sections.map(item => <button key={item.key} role="tab" aria-selected={section === item.key} onClick={() => { setSection(item.key); setLimit(100); }}>{item.label} ({item.rows.length})</button>)}
       </div>}
       {col === "clients" && <div className="erp-value-tabs">
         {(["sector", "country"] as const).map((key) => {

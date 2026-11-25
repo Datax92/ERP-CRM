@@ -323,6 +323,11 @@ export function paymentInfo(p: Rec, s: Store) {
 
 // ---------- Shipment ----------
 /** Where a shipment stands: days late against its ETA, and which documents are still missing. */
+export function shipmentOrder(shipment: Rec, s: Store) {
+  const id = shipment.salesOrderId || s.byId.purchaseOrders.get(shipment.purchaseOrderId)?.salesOrderId;
+  return s.byId.salesOrders.get(id);
+}
+
 export function shipmentInfo(sh: Rec, s: Store) {
   const required = s.settings.shipmentDocuments;
   const ready: string[] = Array.isArray(sh.docsReady) ? sh.docsReady : [];

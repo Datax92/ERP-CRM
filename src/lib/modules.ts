@@ -1,6 +1,6 @@
 import { computeCostSheet, daysBetween, emptyItem, fmtDate, fmtMoney, fmtNum, fmtPct, itemTotals, num, rateOf, today } from "./calc";
 import { computeCalcSheet } from "./calcSheet";
-import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, dealLinks, deliveryInfo, paymentInfo, piInfo, poInfo, salesRefOf, shipmentInfo, soInfo, supplierInfo, vendorPaymentOf, type Store } from "./derive";
+import { bestSupplierPrices, priceLabel, documentClientId, clientInfo, dealLinks, deliveryInfo, paymentInfo, piInfo, poInfo, salesRefOf, shipmentInfo, shipmentOrder, soInfo, supplierInfo, vendorPaymentOf, type Store } from "./derive";
 import { contactDate, contactDetails, latestMarketingContact, marketingChannelName, marketingStatus, MARKETING_STATUSES } from "./marketing";
 import { STAGES, stageKind } from "./stages";
 import type { CollectionName, ItemsMode, ListKey, Rec } from "./types";
@@ -800,7 +800,7 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
 
   shipments: {
     col: "shipments",
-    title: "Shipments & Documentation",
+    title: "Payment Invoices/Shipping Docs",
     singular: "Shipment",
     href: "/shipments",
     prefix: "SHP",
@@ -844,7 +844,17 @@ export const MODULES: Record<CollectionName, ModuleConfig> = {
       { key: "date", label: "Booking date", cell: (r) => date(r.date) },
       { key: "mode", label: "Mode", cell: (r) => t(r.mode) },
       { key: "client", label: "Client", cell: (r, s) => t(clientName(r, s)) },
-      { key: "so", label: "S/O ref.", cell: (r, s) => t(s.byId.salesOrders.get(r.salesOrderId)?.serial) },
+      { key: "so", label: "S/O ref.", cell: (r, s) => t(shipmentOrder(r, s)?.serial) },
+      { key: "invoices", label: "Linked client invoices", cell: (r, s) => {
+        const order = shipmentOrder(r, s);
+        return t(order && s.proformaInvoices.filter(pi => pi.salesOrderId === order.id && pi.type !== "From Supplier" && pi.status !== "Cancelled").map(pi => pi.serial).join(", "));
+      } },
+      { key: "orderPayment", label: "Client order payment", cell: (r, s) => {
+        const order = shipmentOrder(r, s);
+        if (!order || order.status === "Cancelled" || r.status === "Cancelled") return t("");
+        const info = soInfo(order, s);
+        return { text: info.payment, subtext: `${fmtMoney(info.received, order.currency)} received · ${fmtMoney(info.outstanding, order.currency)} due` };
+      } },
       { key: "po", label: "P/O ref.", cell: (r, s) => t(s.byId.purchaseOrders.get(r.purchaseOrderId)?.serial) },
       { key: "supplier", label: "Supplier", cell: (r, s) => t(supplierName(r, s)) },
       { key: "carrier", label: "Carrier", cell: (r) => ({ text: r.carrier || "—", subtext: r.forwarder || undefined }) },
