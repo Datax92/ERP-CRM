@@ -322,6 +322,52 @@ const ART: Record<string, React.ReactNode> = {
       <circle cx="24" cy="24" r="6.5" fill="var(--ic-paper)" />
     </>
   ),
+  /* Trade ERP's own icons, so they no longer look like the Property CRM's. */
+  erpDashboard: (
+    <>
+      <path d="M5 34a19 19 0 0 1 38 0z" fill={C.navy} />
+      <path d="M5 34a19 19 0 0 1 9.5-16.5L24 34z" fill={C.teal} />
+      <path d="M14.5 17.5A19 19 0 0 1 33.5 17.5L24 34z" fill={C.amber} />
+      <path d="M24 34l9-13" stroke="var(--ic-paper)" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="24" cy="34" r="4" fill={C.coral} />
+      <rect x="5" y="38" width="38" height="4" rx="2" fill={C.blue} />
+    </>
+  ),
+  erpTasks: (
+    <>
+      <rect x="6" y="9" width="36" height="33" rx="5" fill={C.purple} />
+      <rect x="6" y="9" width="36" height="9" rx="4" fill={C.coral} />
+      <rect x="13" y="5" width="4" height="9" rx="2" fill={C.navy} />
+      <rect x="31" y="5" width="4" height="9" rx="2" fill={C.navy} />
+      <rect x="11" y="23" width="7" height="6" rx="1.5" fill="var(--ic-paper)" opacity=".85" />
+      <rect x="21" y="23" width="7" height="6" rx="1.5" fill={C.amber} />
+      <rect x="31" y="23" width="7" height="6" rx="1.5" fill="var(--ic-paper)" opacity=".85" />
+      <rect x="11" y="32" width="7" height="6" rx="1.5" fill="var(--ic-paper)" opacity=".85" />
+      <rect x="21" y="32" width="7" height="6" rx="1.5" fill="var(--ic-paper)" opacity=".85" />
+    </>
+  ),
+  erpSuppliers: (
+    <>
+      <path d="M5 42V22l10 6v-6l10 6v-6l10 6V12h8v30z" fill={C.blue} />
+      <rect x="35" y="6" width="8" height="8" rx="1.5" fill={C.navy} />
+      <rect x="10" y="32" width="5" height="5" rx="1" fill={C.amber} />
+      <rect x="20" y="32" width="5" height="5" rx="1" fill={C.amber} />
+      <rect x="30" y="32" width="5" height="5" rx="1" fill={C.amber} />
+    </>
+  ),
+  erpCostSheet: (
+    <>
+      <rect x="9" y="5" width="30" height="38" rx="5" fill={C.deep} />
+      <rect x="13" y="9" width="22" height="9" rx="2" fill={C.teal} />
+      <rect x="13" y="22" width="5.5" height="5" rx="1.3" fill="var(--ic-paper)" />
+      <rect x="21.2" y="22" width="5.5" height="5" rx="1.3" fill="var(--ic-paper)" />
+      <rect x="29.5" y="22" width="5.5" height="5" rx="1.3" fill={C.amber} />
+      <rect x="13" y="30" width="5.5" height="5" rx="1.3" fill="var(--ic-paper)" />
+      <rect x="21.2" y="30" width="5.5" height="5" rx="1.3" fill="var(--ic-paper)" />
+      <rect x="29.5" y="30" width="5.5" height="10" rx="1.3" fill={C.coral} />
+      <rect x="13" y="37" width="13.7" height="3" rx="1.3" fill="var(--ic-paper)" opacity=".7" />
+    </>
+  ),
 };
 
 export function AppIcon({ name, size = 44 }: { name: string; size?: number }) {

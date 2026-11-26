@@ -292,8 +292,9 @@ function ModulePageInner({ col, subtitle, report, extraActions, banner, defaultT
           <>
             {extraActions}
             {table.controls}
-            {isContact && <button className="btn" disabled={!sorted.some(r => r.email)} onClick={async () => {
-              const emails = [...new Set(sorted.flatMap(r => String(r.email || "").split(/[;,\s]+/)).map(x => x.trim()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))];
+            {isContact && <button className="btn" disabled={!sorted.some(r => r.email || r.emailCc1 || r.emailCc2)} onClick={async () => {
+              // Main email plus both CC addresses.
+              const emails = [...new Set(sorted.flatMap(r => [r.email, r.emailCc1, r.emailCc2].flatMap(e => String(e || "").split(/[;,\s]+/))).map(x => x.trim()).filter(x => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)))];
               try { await navigator.clipboard.writeText(emails.join("; ")); setCopyMessage(`All ${emails.length} email addresses have been copied.`); }
               catch { setCopyMessage("Could not access clipboard. Allow clipboard access and try again."); }
             }}><Copy size={14} /> Copy all emails</button>}

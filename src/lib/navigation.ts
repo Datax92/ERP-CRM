@@ -3,20 +3,20 @@ import { FEATURES } from './features';
 export type AppItem = { href: string; label: string; icon: string };
 export const NAV: { group: string; items: AppItem[] }[] = [
   { group: 'Overview', items: [
-    { href: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { href: '/schedule', label: 'Tasks & Planner', icon: 'tasks' },
+    { href: '/dashboard', label: 'Dashboard', icon: 'erpDashboard' },
+    { href: '/schedule', label: 'Tasks & Planner', icon: 'erpTasks' },
     { href: '/reports', label: 'Reports', icon: 'reports' },
     ...(FEATURES.messaging ? [{ href: '/messages', label: 'Messages', icon: 'messages' }] : []),
   ] },
   { group: 'Contacts', items: [
     { href: '/clients', label: 'Clients', icon: 'agents' },
-    { href: '/suppliers', label: 'Suppliers', icon: 'inventory' },
+    { href: '/suppliers', label: 'Suppliers', icon: 'erpSuppliers' },
     { href: '/marketing', label: 'Marketing', icon: 'commission' },
   ] },
   { group: 'Sales', items: [
     { href: '/rfqs', label: 'RFQs', icon: 'projects' },
     { href: '/quotations', label: 'Quotations', icon: 'proforma' },
-    { href: '/cost-sheets', label: 'Cost Sheets', icon: 'landed' },
+    { href: '/cost-sheets', label: 'Cost Sheets', icon: 'erpCostSheet' },
     { href: '/sales-orders', label: 'Sales Orders', icon: 'sales' },
   ] },
   { group: 'Purchasing', items: [

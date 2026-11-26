@@ -135,12 +135,12 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: 'proforma', label: 'Proforma', sub: 'Invoice for a client', icon: 'proforma', go: '/proforma-invoices?new=1' },
   { id: 'saleInvoice', label: 'Sales order', sub: 'Confirm a client order', icon: 'sales', go: '/sales-orders?new=1' },
   { id: 'purchaseInvoice', label: 'Purchase order', sub: 'Order from a supplier', icon: 'purchase', go: '/purchase-orders?new=1' },
-  { id: 'costSheet', label: 'Cost sheet', sub: 'Work out a deal', icon: 'landed', go: '/cost-sheets?new=1' },
+  { id: 'costSheet', label: 'Cost sheet', sub: 'Work out a deal', icon: 'erpCostSheet', go: '/cost-sheets?new=1' },
   { id: 'payment', label: 'Payment', sub: 'Money in or out', icon: 'cash', go: '/payments?new=1' },
   { id: 'expense', label: 'Expense', sub: 'Record business spending', icon: 'expenses', go: '/expenses?new=1' },
   { id: 'client', label: 'Client', sub: 'Add a client', icon: 'agents', go: '/clients?new=1' },
-  { id: 'supplier', label: 'Supplier', sub: 'Add a supplier', icon: 'inventory', go: '/suppliers?new=1' },
-  { id: 'task', label: 'Tasks', sub: 'Plan your work', icon: 'tasks', go: '/schedule' },
+  { id: 'supplier', label: 'Supplier', sub: 'Add a supplier', icon: 'erpSuppliers', go: '/suppliers?new=1' },
+  { id: 'task', label: 'Tasks', sub: 'Plan your work', icon: 'erpTasks', go: '/schedule' },
 ];
 export const MAX_SHORTCUTS = 6;
 
